@@ -32,16 +32,18 @@ Nếu máy báo không tìm thấy Java, cài JDK 21 và kiểm tra `java -versi
        CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
    ```
 
-2. Dùng chung `src/main/resources/application.properties`. Có thể ghi đè thông tin kết nối bằng biến môi trường để không sửa mật khẩu trong Git:
+2. `src/main/resources/application.properties` không lưu mật khẩu DB. Trên PowerShell, đặt biến môi trường trong terminal trước khi chạy:
 
-   ```sh
-   export SPRING_DATASOURCE_URL='jdbc:mysql://localhost:3306/movie_booking?useSSL=false&serverTimezone=UTC'
-   export SPRING_DATASOURCE_USERNAME='root'
-   export SPRING_DATASOURCE_PASSWORD='mat-khau-db-cua-ban'
-   ./mvnw spring-boot:run
+   ```powershell
+   $env:SPRING_DATASOURCE_URL = 'jdbc:mysql://localhost:3306/movie_booking?useSSL=false&serverTimezone=UTC'
+   $env:SPRING_DATASOURCE_USERNAME = 'root'
+   $env:SPRING_DATASOURCE_PASSWORD = 'mat-khau-db-cua-ban'
+   .\mvnw.cmd spring-boot:run
    ```
 
-3. `ddl-auto=update` hiện có sẽ tạo thêm `movies`, `categories`, `movie_category`. Nếu nhóm muốn tạo schema thủ công, dùng `database/catalog-schema.sql` trong database trên; script không tự chạy và không xóa dữ liệu.
+   Bash/macOS/Linux có thể dùng `export SPRING_DATASOURCE_PASSWORD='mat-khau-db-cua-ban'` và `./mvnw spring-boot:run`.
+
+3. `ddl-auto=update` sẽ cập nhật schema khi ứng dụng chạy. Nếu muốn tạo bảng thủ công trước, chạy `database/movie-booking.sql`; file tạo bảng `users`, `movies`, `categories`, `movie_category`, không xóa bảng và không chứa tài khoản/dữ liệu cá nhân.
 4. Muốn nạp phim mẫu vào MySQL lần đầu, đặt `CATALOG_SEED_ENABLED=true` trước khi chạy. Seeder chỉ chạy khi bảng `movies` rỗng; không ghi đè phim đã có. Sau khi nạp có thể tắt biến này.
 5. Dùng tài khoản Admin của Người 1. Không có Admin mặc định được tự tạo ở chế độ MySQL. Có thể đăng ký một tài khoản rồi người quản lý DB cấp quyền cho đúng email:
 
@@ -52,7 +54,7 @@ Nếu máy báo không tìm thấy Java, cài JDK 21 và kiểm tra `java -versi
 
    Đăng xuất và đăng nhập lại sau khi đổi role.
 
-File `da1.sql` cũ chỉ chứa users; không cần import để chạy module phim. Nếu đã import, chú ý nó có cả `enable`/`enabled` và `create_at`/`created_at`; Java dùng **enabled** và **created_at**. Tài khoản Admin cũ có `enabled = NULL`, cần đặt `enabled = b'1'` trước khi đăng nhập. Không chạy lại dump lên DB đang có dữ liệu cần giữ vì dump có `DROP TABLE users`.
+Nếu database cũ được tạo từ dump trước đây, có thể còn các cột dư `enable`/`create_at`; Java sử dụng `enabled`/`created_at`. File schema hợp nhất không xóa hoặc tự di chuyển các cột cũ. Hãy sao lưu DB trước khi thay đổi schema hiện có.
 
 ## Chức năng và đường dẫn của Người 2
 
