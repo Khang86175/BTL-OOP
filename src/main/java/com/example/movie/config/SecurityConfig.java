@@ -19,7 +19,7 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/", "/register", "/login", "/css/**", "/js/**").permitAll() // Ai cũng vào được
+                .requestMatchers("/", "/register", "/login", "/movies", "/movies/**", "/css/**", "/js/**", "/images/**", "/error").permitAll()
                 .requestMatchers("/admin/**").hasRole("ADMIN") // Chỉ ADMIN mới vào được
                 .anyRequest().authenticated() // Tất cả trang khác cần đăng nhập
             )

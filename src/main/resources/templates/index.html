@@ -1,41 +1,26 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
-<head>
-    <title>Trang chủ - CineTicket</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" th:href="@{/css/style.css}">
-</head>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/catalog :: head('Trang chủ')}"></head>
 <body>
-    <!-- Navbar dùng chung (nút Đăng nhập/Đăng ký ở góc trên phải) -->
-    <th:block th:replace="fragments/navbar :: navbar"></th:block>
-
-    <!-- Banner -->
-    <div class="hero text-white text-center p-5 mb-5">
-        <h1 class="display-5 fw-bold">Đặt vé xem phim dễ dàng</h1>
-        <p class="lead">Chọn phim, chọn lịch chiếu, chọn ghế trong vài phút.</p>
-        <a th:href="@{/movies}" class="btn btn-success btn-lg mt-2">Xem phim đang chiếu</a>
-    </div>
-
-    <!-- Phim đang chiếu (sau này Người 2 sẽ đổ danh sách phim thật vào đây) -->
-    <section class="container mb-5">
-        <h2 class="mb-4">Phim đang chiếu</h2>
-        <div class="row">
-            <!-- Sửa thành th:each="movie : ${movies}" khi có dữ liệu -->
-            <div class="col-md-4 mb-4">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h5 class="card-title">Tên phim mẫu</h5>
-                        <p class="card-text text-muted">Thể loại: Hành động • 120 phút</p>
-                        <a th:href="@{/movies/1}" class="btn btn-outline-success btn-sm">Xem chi tiết</a>
-                    </div>
-                </div>
-            </div>
+<th:block th:replace="~{fragments/navbar :: navbar}"></th:block>
+<main>
+    <section class="hero"><div class="container py-5">
+        <p class="eyebrow">CINETICKET / KHÔNG GIAN ĐIỆN ẢNH</p>
+        <h1 class="display-4 fw-bold">Câu chuyện hay.<br>Trải nghiệm đáng nhớ.</h1>
+        <p class="hero-description">Khám phá những bộ phim đang chiếu và đón chờ hành trình tiếp theo trên màn ảnh.</p>
+        <div class="d-flex gap-3 flex-wrap mt-4">
+            <a th:href="@{/movies(status='NOW_SHOWING')}" class="btn btn-success btn-lg">Khám phá phim đang chiếu ↗</a>
+            <a th:href="@{/movies(status='COMING_SOON')}" class="btn btn-outline-light btn-lg">Phim sắp chiếu</a>
         </div>
+    </div></section>
+    <section class="container page-section">
+        <div class="d-flex justify-content-between align-items-center mb-4 gap-3">
+            <div><p class="eyebrow text-success mb-2">TRÊN MÀN ẢNH</p><h2 class="h2 fw-bold mb-0">Phim đang chiếu</h2></div>
+            <a th:href="@{/movies}" class="text-success">Xem tất cả →</a>
+        </div>
+        <div th:if="${#lists.isEmpty(movies)}" class="empty-state"><h3 class="h5">Phim mới đang được cập nhật</h3><p class="mb-0 text-secondary">Hãy quay lại sau để khám phá những bộ phim mới.</p></div>
+        <th:block th:replace="~{fragments/catalog :: cards(${movies})}"></th:block>
     </section>
-
-    <!-- Footer -->
-    <footer class="bg-dark text-white text-center p-3 mt-5">
-        © 2026 CineTicket - Đồ án OOP
-    </footer>
-</body>
-</html>
+</main>
+<th:block th:replace="~{fragments/catalog :: footer}"></th:block>
+</body></html>

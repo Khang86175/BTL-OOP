@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head(title)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${title} + ' - CineTicket'">CineTicket</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+<footer th:fragment="footer" class="site-footer">
+    <div class="container d-flex flex-wrap justify-content-between gap-2">
+        <span>© 2026 CineTicket · Đồ án OOP</span><span>Mỗi bộ phim, một hành trình mới.</span>
+    </div>
+</footer>
+<form th:fragment="filters(action)" th:action="${action}" method="get" class="filter-panel row g-3 mb-4" aria-label="Tìm và lọc phim">
+    <div class="col-lg-4"><label for="q" class="form-label">Tên phim</label>
+        <input id="q" name="q" type="search" th:value="${q}" class="form-control" placeholder="Bạn muốn xem phim gì?" maxlength="200"></div>
+    <div class="col-sm-6 col-lg-2"><label for="categoryId" class="form-label">Thể loại</label>
+        <select id="categoryId" name="categoryId" class="form-select">
+            <option value="">Tất cả thể loại</option>
+            <option th:each="category : ${categories}" th:value="${category.id}" th:text="${category.name}" th:selected="${category.id == categoryId}"></option>
+        </select></div>
+    <div class="col-sm-6 col-lg-2"><label for="status" class="form-label">Trạng thái</label>
+        <select id="status" name="status" class="form-select">
+            <option value="">Tất cả</option>
+            <option th:each="item : ${statuses}" th:value="${item}" th:text="${item.label}" th:selected="${item == status}"></option>
+        </select></div>
+    <div class="col-sm-6 col-lg-2"><label for="sort" class="form-label">Sắp xếp</label>
+        <select id="sort" name="sort" class="form-select">
+            <option value="releaseDateDesc" th:selected="${sort == 'releaseDateDesc'}">Khởi chiếu mới nhất</option>
+            <option value="releaseDateAsc" th:selected="${sort == 'releaseDateAsc'}">Khởi chiếu cũ nhất</option>
+            <option value="title" th:selected="${sort == 'title'}">Tên phim A–Z</option>
+        </select></div>
+    <div class="col-sm-6 col-lg-2 d-flex align-items-end gap-2">
+        <button class="btn btn-success flex-grow-1" type="submit">Tìm phim</button>
+        <a th:href="${action}" class="btn btn-outline-secondary" aria-label="Xóa bộ lọc">Xóa</a>
+    </div>
+</form>
+<div th:fragment="cards(items)" class="row g-4">
+    <article th:each="movie : ${items}" class="col-sm-6 col-lg-4">
+        <div class="movie-card h-100">
+            <a th:href="@{/movies/{id}(id=${movie.id})}" class="poster-link" tabindex="-1" aria-hidden="true">
+                <img th:src="${movie.posterUrl != null ? movie.posterUrl : '/images/poster-placeholder.svg'}"
+                     th:attr="data-fallback=@{/images/poster-placeholder.svg}" onerror="this.onerror=null;this.src=this.dataset.fallback"
+                     alt="" class="movie-poster" loading="lazy">
+                <span class="poster-title" th:if="${movie.posterUrl == null}" th:text="${movie.title}"></span>
+                <span class="age-badge" th:text="${movie.ageRating}"></span>
+            </a>
+            <div class="p-4">
+                <span class="status-label" th:classappend="${movie.screeningStatus.name() == 'COMING_SOON'} ? ' coming-soon'" th:text="${movie.screeningStatus.label}"></span>
+                <h2 class="h5 mt-2 mb-2"><a class="movie-title" th:href="@{/movies/{id}(id=${movie.id})}" th:text="${movie.title}"></a></h2>
+                <p class="small text-secondary mb-2"><span th:text="${movie.durationMinutes} + ' phút'"></span> · <span th:text="${#temporals.format(movie.releaseDate, 'dd/MM/yyyy')}"></span></p>
+                <div class="genre-list mb-3"><span th:each="category : ${movie.categories}" class="genre-chip" th:text="${category.name}"></span></div>
+                <a th:href="@{/movies/{id}(id=${movie.id})}" class="btn btn-outline-success btn-sm">Xem chi tiết <span aria-hidden="true">↗</span></a>
+            </div>
+        </div>
+    </article>
+</div>
+</body></html>

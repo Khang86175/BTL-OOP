@@ -23,6 +23,8 @@ public class CurrentUserAdvice {
                 && !(auth instanceof AnonymousAuthenticationToken);
 
         model.addAttribute("isLoggedIn", loggedIn);
+        model.addAttribute("isAdmin", loggedIn && auth.getAuthorities().stream()
+                .anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN")));
         if (loggedIn) {
             model.addAttribute("loginName", auth.getName());
         }

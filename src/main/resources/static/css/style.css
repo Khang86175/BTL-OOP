@@ -1,4 +1,341 @@
-/* Style riêng của trang chủ (Bootstrap lo phần khung, file này lo phần màu/mỏng) */
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap');
+:root {
+    --ink:#142c28;
+    --muted:#64736d;
+    --green:#16744c;
+    --paper:#f6f8f5;
+    --line:#e0e7e0;
+}
+
+body {
+    font-family:'Be Vietnam Pro',system-ui,sans-serif;
+    color:var(--ink);
+    background:var(--paper);
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+}
+
+main {
+    flex:1;
+}
+
+a {
+    text-underline-offset:4px;
+}
+
+.btn {
+    border-radius:8px;
+    font-weight:500;
+}
+
+.btn-success {
+    background:var(--green);
+    border-color:var(--green);
+}
+
+.btn-success:hover {
+    background:#105737;
+    border-color:#105737;
+}
+
+.text-success {
+    color:var(--green)!important;
+}
+
+.site-navbar {
+    background:#112b26;
+    padding:20px 0;
+}
+
+.nav-catalog {
+    color:#e4ede8;
+    text-decoration:none;
+    font-size:.88rem;
+}
+
+.nav-catalog:hover {
+    color:#9de2be;
+}
+
+.brand-mark {
+    display:inline-grid;
+    place-items:center;
+    width:32px;
+    height:32px;
+    border:1px solid #7ec5a1;
+    border-radius:9px;
+    color:#a6e2bf;
+    margin-right:5px;
+}
+
 .hero {
-    background: linear-gradient(135deg, #1f1c2c, #928dab);
+    color:#fff;
+    background:radial-gradient(ellipse at 85% 5%,#37664a 0,transparent 55%),#112c28;
+    padding:30px 0 42px;
+}
+
+.hero h1 {
+    max-width:790px;
+    line-height:1.2;
+    letter-spacing:-1.6px;
+}
+
+.hero-description {
+    max-width:620px;
+    color:#bed2c7;
+    line-height:1.9;
+    margin-top:24px;
+}
+
+.eyebrow {
+    font-size:.72rem;
+    letter-spacing:2px;
+    font-weight:700;
+}
+
+.hero .eyebrow {
+    color:#a4d5b7;
+}
+
+.page-section {
+    padding-top:48px;
+    padding-bottom:64px;
+}
+
+.filter-panel {
+    background:white;
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:8px 12px 22px;
+    margin-left:0;
+    margin-right:0;
+}
+
+.form-label {
+    font-size:.86rem;
+    font-weight:600;
+}
+
+.form-control,.form-select {
+    border-color:#ced9cf;
+    min-height:43px;
+}
+
+.form-control:focus,.form-select:focus {
+    border-color:#328e63;
+    box-shadow:0 0 0 .2rem #328e6320;
+}
+
+.movie-card {
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:15px;
+    overflow:hidden;
+    transition:box-shadow .2s,transform .2s;
+}
+
+.movie-card:hover {
+    box-shadow:0 12px 30px #183a2910;
+    transform:translateY(-3px);
+}
+
+.poster-link {
+    display:block;
+    position:relative;
+    overflow:hidden;
+    aspect-ratio:1/1.02;
+    background:#143d38;
+}
+
+.movie-poster {
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+}
+
+.poster-title {
+    position:absolute;
+    bottom:30px;
+    left:28px;
+    right:28px;
+    color:#ecf4e8;
+    font-size:1.8rem;
+    font-weight:700;
+    line-height:1.35;
+    letter-spacing:-.6px;
+}
+
+.age-badge {
+    position:absolute;
+    top:16px;
+    left:16px;
+    background:#f1ecd5;
+    color:#26382c;
+    border-radius:5px;
+    padding:4px 9px;
+    font-size:.75rem;
+    font-weight:700;
+}
+
+.movie-title {
+    color:var(--ink);
+    text-decoration:none;
+}
+
+.movie-title:hover {
+    color:var(--green);
+}
+
+.status-label {
+    color:#16744c;
+    font-size:.72rem;
+    font-weight:700;
+    letter-spacing:.4px;
+}
+
+.status-label::before {
+    content:'';
+    display:inline-block;
+    width:6px;
+    height:6px;
+    border-radius:50%;
+    background:currentColor;
+    margin-right:6px;
+    vertical-align:middle;
+}
+
+.coming-soon {
+    color:#996b13;
+}
+
+.genre-list {
+    display:flex;
+    gap:6px;
+    flex-wrap:wrap;
+}
+
+.genre-chip {
+    display:inline-block;
+    background:#edf3ed;
+    color:#49624f;
+    padding:4px 9px;
+    border-radius:5px;
+    font-size:.68rem;
+    text-decoration:none;
+}
+
+.empty-state {
+    padding:65px 24px;
+    background:#fff;
+    text-align:center;
+    border:1px dashed #c5d5c7;
+    border-radius:14px;
+}
+
+.site-footer {
+    padding:26px 0;
+    border-top:1px solid var(--line);
+    color:var(--muted);
+    font-size:.75rem;
+    margin-top:auto;
+}
+
+.detail-poster {
+    position:relative;
+    overflow:hidden;
+    background:#143d38;
+    border-radius:16px;
+}
+
+.detail-poster img {
+    aspect-ratio:3/4;
+    object-fit:cover;
+}
+
+.movie-facts {
+    line-height:1.8;
+}
+
+.movie-facts dt {
+    font-weight:500;
+    color:var(--muted);
+    font-size:.9rem;
+}
+
+.movie-facts dd {
+    font-weight:500;
+}
+
+.synopsis {
+    white-space:pre-line;
+    line-height:1.95;
+}
+
+.panel {
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:14px;
+    overflow:hidden;
+}
+
+.admin-table thead th {
+    background:#eef3ed;
+    font-size:.75rem;
+    color:#506155;
+    white-space:nowrap;
+    padding:17px 20px;
+}
+
+.admin-table td {
+    padding:20px;
+    font-size:.85rem;
+    border-color:#edf1eb;
+}
+
+.form-page {
+    max-width:930px;
+}
+
+.invalid-feedback {
+    font-size:.8rem;
+}
+
+.form-check-input:checked {
+    background-color:var(--green);
+    border-color:var(--green);
+}
+
+@media(max-width:767px) {
+    .hero h1 {
+        font-size:2.3rem;
+        letter-spacing:-1px;
+    }
+    .hero {
+        padding:5px 0 15px;
+    }
+    .page-section {
+        padding-top:32px;
+        padding-bottom:40px;
+    }
+    .site-navbar {
+        padding:16px 0;
+    }
+    .navbar-brand {
+        width:100%;
+    }
+    .site-navbar .ms-auto {
+        margin-left:0!important;
+        gap:12px!important;
+    }
+    .poster-link {
+        aspect-ratio:1/1.05;
+    }
+    .admin-table td {
+        padding:14px;
+    }
+    .hero .btn {
+        font-size:.88rem;
+    }
 }

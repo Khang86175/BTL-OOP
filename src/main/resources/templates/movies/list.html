@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/catalog :: head('Khám phá phim')}"></head>
+<body>
+<th:block th:replace="~{fragments/navbar :: navbar}"></th:block>
+<main class="container page-section">
+    <p class="eyebrow text-success">CHỌN CÂU CHUYỆN CỦA BẠN</p>
+    <h1 class="fw-bold mb-2">Khám phá phim</h1>
+    <p class="text-secondary mb-4">Tìm bộ phim cho buổi hẹn tiếp theo — từ những câu chuyện gần gũi đến hành trình kỳ thú.</p>
+    <th:block th:replace="~{fragments/catalog :: filters(@{/movies})}"></th:block>
+    <p class="text-secondary small" role="status" th:text="${#lists.size(movies)} + ' phim phù hợp'"></p>
+    <div th:if="${#lists.isEmpty(movies)}" class="empty-state">
+        <h2 class="h4">Chưa tìm thấy phim phù hợp</h2><p class="text-secondary">Thử tên phim khác hoặc bỏ bớt bộ lọc.</p>
+        <a th:href="@{/movies}" class="btn btn-outline-success">Xem tất cả phim</a>
+    </div>
+    <th:block th:replace="~{fragments/catalog :: cards(${movies})}"></th:block>
+</main>
+<th:block th:replace="~{fragments/catalog :: footer}"></th:block>
+</body></html>

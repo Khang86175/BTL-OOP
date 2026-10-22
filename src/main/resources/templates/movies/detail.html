@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/catalog :: head(${movie.title})}"></head>
+<body>
+<th:block th:replace="~{fragments/navbar :: navbar}"></th:block>
+<main class="container page-section">
+    <a th:href="@{/movies}" class="text-success d-inline-block mb-4">← Trở về danh sách phim</a>
+    <div class="row g-5">
+        <div class="col-md-4"><div class="detail-poster">
+            <img th:src="${movie.posterUrl != null ? movie.posterUrl : '/images/poster-placeholder.svg'}" th:alt="'Poster ' + ${movie.title}"
+                 th:attr="data-fallback=@{/images/poster-placeholder.svg}" onerror="this.onerror=null;this.src=this.dataset.fallback" class="w-100">
+            <span class="poster-title" th:if="${movie.posterUrl == null}" th:text="${movie.title}"></span>
+        </div></div>
+        <div class="col-md-8">
+            <span class="status-label" th:text="${movie.screeningStatus.label}"></span>
+            <h1 class="display-5 fw-bold mt-3" th:text="${movie.title}"></h1>
+            <div class="genre-list my-3"><a th:each="category : ${movie.categories}" th:href="@{/movies(categoryId=${category.id})}" class="genre-chip" th:text="${category.name}"></a></div>
+            <dl class="row movie-facts mt-4">
+                <dt class="col-sm-3">Đạo diễn</dt><dd class="col-sm-9" th:text="${movie.director}"></dd>
+                <dt class="col-sm-3">Thời lượng</dt><dd class="col-sm-9" th:text="${movie.durationMinutes} + ' phút'"></dd>
+                <dt class="col-sm-3">Khởi chiếu</dt><dd class="col-sm-9" th:text="${#temporals.format(movie.releaseDate, 'dd/MM/yyyy')}"></dd>
+                <dt class="col-sm-3">Giới hạn tuổi</dt><dd class="col-sm-9" th:text="${movie.ageRating.label}"></dd>
+            </dl>
+            <hr class="my-4"><h2 class="h4">Nội dung phim</h2>
+            <p class="synopsis text-secondary" th:text="${movie.synopsis}"></p>
+            <a th:if="${movie.trailerUrl != null}" th:href="${movie.trailerUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-success mt-3">▶ Xem trailer <span class="visually-hidden">(mở tab mới)</span></a>
+            <p class="small text-secondary mt-4">Lịch chiếu sẽ được cập nhật sau.</p>
+        </div>
+    </div>
+</main>
+<th:block th:replace="~{fragments/catalog :: footer}"></th:block>
+</body></html>

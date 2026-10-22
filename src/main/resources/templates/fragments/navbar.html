@@ -1,33 +1,22 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
-<!--
-  Fragment navbar dùng chung cho mọi trang.
-  Cách dùng: <th:block th:replace="fragments/navbar :: navbar"></th:block>
-  Chưa đăng nhập  -> hiện nút Đăng nhập / Đăng ký (góc trên phải)
-  Đã đăng nhập    -> hiện "Xin chào, [email]" + nút Đăng xuất
-  ${isLoggedIn}/${loginName} được CurrentUserAdvice đưa vào model tự động.
--->
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <th:block th:fragment="navbar">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand fw-bold" th:href="@{/}">🎬 CineTicket</a>
-
-            <!-- Đã đăng nhập: tên + nút Đăng xuất -->
-            <div class="ms-auto d-flex align-items-center gap-2" th:if="${isLoggedIn}">
-                <span class="navbar-text text-white me-2">
-                    Xin chào, <b th:text="${loginName}">user</b>
-                </span>
-                <form th:action="@{/logout}" method="post">
-                    <button type="submit" class="btn btn-outline-light btn-sm">Đăng xuất</button>
-                </form>
-            </div>
-
-            <!-- Chưa đăng nhập: nút Đăng nhập / Đăng ký -->
-            <div class="ms-auto d-flex align-items-center gap-2" th:unless="${isLoggedIn}">
+<nav class="navbar navbar-dark site-navbar">
+    <div class="container d-flex flex-wrap gap-3">
+        <a class="navbar-brand fw-bold m-0" th:href="@{/}"><span class="brand-mark" aria-hidden="true">C</span> CineTicket</a>
+        <div class="d-flex align-items-center flex-wrap gap-3 ms-auto">
+            <a class="nav-catalog" th:href="@{/movies}">Khám phá phim</a>
+            <a th:if="${isAdmin}" class="nav-catalog" th:href="@{/admin/movies}">Quản lý phim</a>
+            <a th:if="${isAdmin}" class="nav-catalog" th:href="@{/admin/categories}">Thể loại</a>
+            <th:block th:if="${isLoggedIn}">
+                <span class="navbar-text small" th:text="${loginName}"></span>
+                <form th:action="@{/logout}" method="post" class="m-0"><button type="submit" class="btn btn-outline-light btn-sm">Đăng xuất</button></form>
+            </th:block>
+            <th:block th:unless="${isLoggedIn}">
                 <a class="btn btn-outline-light btn-sm" th:href="@{/login}">Đăng nhập</a>
                 <a class="btn btn-success btn-sm" th:href="@{/register}">Đăng ký</a>
-            </div>
+            </th:block>
         </div>
-    </nav>
-</th:block>
-</html>
+    </div>
+</nav>
+</th:block></html>

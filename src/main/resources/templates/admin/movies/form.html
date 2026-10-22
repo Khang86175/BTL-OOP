@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/catalog :: head(${movieId == null ? 'Thêm phim' : 'Sửa phim'})}"></head>
+<body>
+<th:block th:replace="~{fragments/navbar :: navbar}"></th:block>
+<main class="container page-section form-page">
+    <a th:href="@{/admin/movies}" class="text-success d-inline-block mb-4">← Quản lý phim</a>
+    <p class="eyebrow text-success">QUẢN TRỊ NỘI DUNG</p>
+    <h1 class="fw-bold mb-4" th:text="${movieId == null ? 'Thêm phim mới' : 'Chỉnh sửa phim'}"></h1>
+    <form th:action="${movieId == null} ? @{/admin/movies} : @{/admin/movies/{id}(id=${movieId})}" th:object="${movieForm}" method="post" class="panel p-4 p-md-5">
+        <div th:if="${#fields.hasAnyErrors()}" class="alert alert-danger" role="alert">
+            <strong>Chưa thể lưu phim. Vui lòng kiểm tra lại:</strong>
+            <ul class="mb-0 mt-2"><li th:each="error : ${#fields.allErrors()}" th:text="${error}"></li></ul>
+        </div>
+        <div class="row g-4">
+            <div class="col-12"><label for="title" class="form-label">Tên phim <span class="text-danger">*</span></label>
+                <input th:field="*{title}" maxlength="200" required class="form-control" th:errorclass="is-invalid"><div class="invalid-feedback" th:errors="*{title}"></div></div>
+            <div class="col-md-7"><label for="director" class="form-label">Đạo diễn <span class="text-danger">*</span></label>
+                <input th:field="*{director}" maxlength="150" required class="form-control" th:errorclass="is-invalid"><div class="invalid-feedback" th:errors="*{director}"></div></div>
+            <div class="col-md-5"><label for="durationMinutes" class="form-label">Thời lượng (phút) <span class="text-danger">*</span></label>
+                <input th:field="*{durationMinutes}" type="number" min="1" max="600" required class="form-control" th:errorclass="is-invalid"><div class="invalid-feedback" th:errors="*{durationMinutes}"></div></div>
+            <div class="col-md-6"><label for="releaseDate" class="form-label">Ngày khởi chiếu <span class="text-danger">*</span></label>
+                <input th:field="*{releaseDate}" type="date" required class="form-control" th:errorclass="is-invalid"><div class="invalid-feedback" th:errors="*{releaseDate}"></div></div>
+            <div class="col-md-6"><label for="ageRating" class="form-label">Giới hạn tuổi <span class="text-danger">*</span></label>
+                <select th:field="*{ageRating}" required class="form-select" th:errorclass="is-invalid"><option th:each="rating : ${ageRatings}" th:value="${rating}" th:text="${rating.label}"></option></select><div class="invalid-feedback" th:errors="*{ageRating}"></div></div>
+            <fieldset class="col-12"><legend class="form-label fs-6">Thể loại <span class="text-danger">*</span></legend>
+                <div th:if="${#lists.isEmpty(categories)}" class="alert alert-warning mb-0">Chưa có thể loại. <a th:href="@{/admin/categories}" class="alert-link">Thêm thể loại</a> trước khi lưu phim.</div>
+                <div class="d-flex flex-wrap gap-3"><div class="form-check" th:each="category : ${categories}">
+                    <input class="form-check-input" type="checkbox" th:field="*{categoryIds}" th:value="${category.id}">
+                    <label class="form-check-label" th:for="${#ids.prev('categoryIds')}" th:text="${category.name}"></label>
+                </div></div>
+                <div class="text-danger small mt-2" th:if="${#fields.hasErrors('categoryIds')}" th:errors="*{categoryIds}"></div>
+            </fieldset>
+            <div class="col-12"><label for="synopsis" class="form-label">Nội dung phim <span class="text-danger">*</span></label>
+                <textarea th:field="*{synopsis}" rows="6" maxlength="10000" required class="form-control" th:errorclass="is-invalid"></textarea><div class="invalid-feedback" th:errors="*{synopsis}"></div></div>
+            <div class="col-12"><label for="posterUrl" class="form-label">URL poster</label>
+                <input th:field="*{posterUrl}" type="url" maxlength="2048" placeholder="https://..." class="form-control" th:errorclass="is-invalid"><div class="invalid-feedback" th:errors="*{posterUrl}"></div><div class="form-text">Có thể để trống để dùng ảnh mặc định.</div></div>
+            <div class="col-12"><label for="trailerUrl" class="form-label">URL trailer</label>
+                <input th:field="*{trailerUrl}" type="url" maxlength="2048" placeholder="https://..." class="form-control" th:errorclass="is-invalid"><div class="invalid-feedback" th:errors="*{trailerUrl}"></div></div>
+            <div class="col-12"><div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="visible" th:field="*{visible}"><label class="form-check-label" for="visible">Hiển thị phim trên website</label>
+            </div><div class="form-text">Trạng thái đang chiếu/sắp chiếu được xác định tự động từ ngày khởi chiếu.</div></div>
+        </div>
+        <hr class="my-4"><div class="d-flex gap-3"><button class="btn btn-success px-4" type="submit">Lưu phim</button><a th:href="@{/admin/movies}" class="btn btn-outline-secondary">Hủy</a></div>
+    </form>
+</main>
+<th:block th:replace="~{fragments/catalog :: footer}"></th:block>
+</body></html>

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/catalog :: head('Quản lý phim')}"></head>
+<body>
+<th:block th:replace="~{fragments/navbar :: navbar}"></th:block>
+<main class="container page-section">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div><p class="eyebrow text-success mb-2">QUẢN TRỊ NỘI DUNG</p><h1 class="fw-bold mb-0">Quản lý phim</h1></div>
+        <div class="d-flex gap-2"><a th:href="@{/admin/categories}" class="btn btn-outline-success">Quản lý thể loại</a><a th:href="@{/admin/movies/new}" class="btn btn-success">+ Thêm phim</a></div>
+    </div>
+    <div th:if="${success}" class="alert alert-success" role="status" th:text="${success}"></div>
+    <th:block th:replace="~{fragments/catalog :: filters(@{/admin/movies})}"></th:block>
+    <p class="small text-secondary" th:text="${#lists.size(movies)} + ' phim, bao gồm cả phim đang ẩn'"></p>
+    <div class="table-responsive panel">
+        <table class="table align-middle mb-0 admin-table">
+            <thead><tr><th scope="col">Phim</th><th scope="col">Khởi chiếu</th><th scope="col">Thể loại</th><th scope="col">Hiển thị</th><th scope="col" class="text-end">Thao tác</th></tr></thead>
+            <tbody>
+            <tr th:if="${#lists.isEmpty(movies)}"><td colspan="5" class="text-center text-secondary p-5">Chưa có phim phù hợp. Thêm phim mới hoặc thay đổi bộ lọc.</td></tr>
+            <tr th:each="movie : ${movies}">
+                <td><a th:href="@{/admin/movies/{id}/edit(id=${movie.id})}" class="movie-title fw-semibold" th:text="${movie.title}"></a>
+                    <div class="small text-secondary mt-1"><span th:text="${movie.durationMinutes} + ' phút'"></span> · <span th:text="${movie.ageRating}"></span></div></td>
+                <td><span th:text="${#temporals.format(movie.releaseDate, 'dd/MM/yyyy')}"></span><div class="small text-secondary" th:text="${movie.screeningStatus.label}"></div></td>
+                <td><div class="genre-list"><span class="genre-chip" th:each="category : ${movie.categories}" th:text="${category.name}"></span></div></td>
+                <td><span class="badge" th:classappend="${movie.visible} ? 'text-bg-success' : 'text-bg-secondary'" th:text="${movie.visible} ? 'Đang hiện' : 'Đang ẩn'"></span></td>
+                <td><div class="d-flex gap-2 justify-content-end flex-wrap">
+                    <a th:href="@{/admin/movies/{id}/edit(id=${movie.id})}" class="btn btn-outline-success btn-sm">Sửa</a>
+                    <form th:action="@{/admin/movies/{id}/visibility(id=${movie.id})}" method="post">
+                        <input type="hidden" name="visible" th:value="${!movie.visible}">
+                        <button class="btn btn-outline-secondary btn-sm" th:text="${movie.visible} ? 'Ẩn phim' : 'Hiện phim'"></button>
+                    </form>
+                </div></td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+    <p class="small text-secondary mt-3">Ẩn phim để ngừng hiển thị cho khách. Thông tin phim được giữ lại cho lịch chiếu và các đơn đặt liên quan.</p>
+</main>
+<th:block th:replace="~{fragments/catalog :: footer}"></th:block>
+</body></html>
