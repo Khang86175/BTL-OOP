@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/catalog :: head('Lịch chiếu')}"></head>
+<body><th:block th:replace="~{fragments/navbar :: navbar}"></th:block>
+<th:block th:replace="~{fragments/schedule :: nav}"></th:block>
+<main class="container page-section"><h1 class="fw-bold mb-4">Lịch chiếu</h1>
+<th:block th:replace="~{fragments/schedule :: alerts}"></th:block>
+<p>Chọn phim, rạp và ngày. Chỉ hiển thị suất đang mở bán hợp lệ; giờ Việt Nam.</p>
+<form method="get" th:action="@{/showtimes}" class="filter-panel row g-3 mb-4">
+<div class="col-md-4"><label class="form-label" for="movieId">Phim</label><select id="movieId" name="movieId" class="form-select"><option value="">Tất cả phim</option><option th:each="x : ${movies}" th:value="${x.id}" th:text="${x.title}" th:selected="${x.id == movieId}"></option></select></div>
+<div class="col-md-3"><label class="form-label" for="theaterId">Rạp</label><select id="theaterId" name="theaterId" class="form-select"><option value="">Tất cả rạp</option><option th:each="x : ${theaters}" th:value="${x.id}" th:text="${x.name}" th:selected="${x.id == theaterId}"></option></select></div>
+<div class="col-md-3"><label class="form-label" for="date">Ngày</label><input type="date" id="date" name="date" th:value="${date}" class="form-control" required></div><div class="col-md-2 d-flex align-items-end"><button class="btn btn-success w-100">Xem lịch</button></div></form>
+<div class="empty-state" th:if="${#lists.isEmpty(showtimes)}">Chưa có suất chiếu phù hợp. Hãy chọn ngày, phim hoặc rạp khác.</div><div class="row g-3"><article class="col-md-6 col-lg-4" th:each="x : ${showtimes}"><div class="schedule-card h-100"><h2 class="h5" th:text="${x.movieTitle}"></h2><p th:text="${x.theaterName + ' / ' + x.roomName + ' · ' + roomLabels[x.roomType.name()]}"></p><p class="fs-4 fw-bold text-success" th:text="${#temporals.format(x.startTime,'HH:mm')}"></p><p th:text="${#temporals.format(x.startTime,'dd/MM/yyyy') + ' → ' + #temporals.format(x.endTime,'dd/MM/yyyy HH:mm')}"></p><p th:text="${'Giá cơ bản: ' + #numbers.formatDecimal(x.basePrice,0,'COMMA',0,'POINT') + ' đ'}"></p><a class="btn btn-outline-success" th:href="@{/showtimes/{id}(id=${x.id})}">Xem suất chiếu</a></div></article></div>
+</main><th:block th:replace="~{fragments/catalog :: footer}"></th:block></body></html>

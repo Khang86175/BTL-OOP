@@ -1,0 +1,15 @@
+<!DOCTYPE html><html lang="vi" xmlns:th="http://www.thymeleaf.org"><body>
+<nav th:fragment="nav" class="container mt-3 schedule-nav" aria-label="Điều hướng rạp và lịch chiếu">
+ <link rel="stylesheet" th:href="@{/css/schedule.css}">
+ <a th:href="@{/showtimes}">Lịch chiếu</a>
+ <th:block th:if="${isAdmin}"><a th:href="@{/admin/theaters}">Rạp</a><a th:href="@{/admin/rooms}">Phòng và ghế</a><a th:href="@{/admin/showtimes}">Quản lý lịch</a></th:block>
+</nav>
+<div th:fragment="alerts">
+ <div th:if="${success}" class="alert alert-success" role="status" th:text="${success}"></div>
+ <div th:if="${failure}" class="alert alert-danger" role="alert" th:text="${failure}"></div>
+</div>
+<div th:fragment="errors" th:if="${#fields.hasAnyErrors()}" class="alert alert-danger" role="alert">
+ <strong>Chưa thể lưu. Vui lòng kiểm tra:</strong>
+ <ul class="mb-0"><li th:each="e : ${#fields.allDetailedErrors()}" th:text="${#strings.contains(e.message,'Failed to convert') ? 'Giá trị không đúng định dạng. Hãy kiểm tra số, ngày giờ và lựa chọn.' : e.message}"></li></ul>
+</div>
+</body></html>

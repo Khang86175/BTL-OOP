@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/catalog :: head('Tạo ghế theo hàng')}"></head>
+<body>
+<th:block th:replace="~{fragments/navbar :: navbar}"></th:block>
+<th:block th:replace="~{fragments/schedule :: nav}"></th:block>
+<main class="container page-section">
+ <h1>Tạo ghế theo hàng</h1>
+ <p th:text="${room.theaterName + ' / ' + room.name}"></p>
+ <p>Màn hình ở phía trên. Gợi ý: các hàng đầu dùng ghế thường, giữa VIP, cuối có thể dùng ghế đôi. Bạn có thể đổi mọi lựa chọn.</p>
+ <p class="small text-secondary">Tối đa 30 khoảng, 1.000 ghế mỗi lần; số ghế từ 1 đến 200. Để chừa lối đi, nhập hai khoảng cùng hàng, ví dụ A1–5 và A7–12. Vị trí A6 sẽ trống, không tạo ghế giả.</p>
+ <form th:action="@{/admin/seats/batch/preview}" th:object="${form}" method="post" id="seat-batch-form" class="panel p-4">
+  <th:block th:replace="~{fragments/schedule :: errors}"></th:block>
+  <input type="hidden" th:field="*{roomId}">
+  <div class="table-responsive"><table class="table"><thead><tr><th>Hàng</th><th>Từ số</th><th>Đến số</th><th>Loại ghế</th><th>Hoạt động</th><th>Thao tác</th></tr></thead>
+   <tbody id="batch-rows">
+    <tr th:each="row, i : *{rows}">
+     <td><input th:field="*{rows[__${i.index}__].rowLabel}" aria-label="Tên hàng" class="form-control" maxlength="10" required></td>
+     <td><input th:field="*{rows[__${i.index}__].firstNumber}" aria-label="Số bắt đầu" type="number" class="form-control" min="1" max="200" required></td>
+     <td><input th:field="*{rows[__${i.index}__].lastNumber}" aria-label="Số kết thúc" type="number" class="form-control" min="1" max="200" required></td>
+     <td><select th:field="*{rows[__${i.index}__].seatType}" class="form-select" aria-label="Loại ghế" required><option th:each="label : ${seatLabels}" th:value="${label.key}" th:text="${label.value}"></option></select></td>
+     <td><input th:field="*{rows[__${i.index}__].active}" type="checkbox" class="form-check-input" aria-label="Ghế hoạt động"></td>
+     <td><button type="button" class="btn btn-outline-danger btn-sm" data-remove-row>Bỏ hàng</button></td>
+    </tr>
+   </tbody>
+  </table></div>
+  <div class="schedule-actions">
+   <button type="button" class="btn btn-outline-success" id="add-batch-row">Thêm hàng / khoảng</button>
+   <button type="submit" class="btn btn-outline-success">Xem trước sơ đồ</button>
+   <button type="submit" th:formaction="@{/admin/seats/batch}" class="btn btn-success">Tạo toàn bộ ghế</button>
+   <a class="btn btn-outline-secondary" th:href="@{/admin/seats(roomId=${room.id})}">Quay lại sơ đồ</a>
+  </div>
+ </form>
+ <section th:if="${previewRows != null}" id="seat-preview" class="mt-4">
+  <h2 class="h4">Xem trước sơ đồ</h2>
+  <p><strong th:text="${previewCount}"></strong> ghế mới dự kiến. Ghế mới có nhãn “Mới”; ghế cũ được giữ nguyên.</p>
+  <p class="small text-secondary">Xem trước chưa ghi dữ liệu. Khi tạo, server kiểm tra lại toàn bộ vị trí.</p>
+  <div class="panel schedule-grid"><div class="screen-label">MÀN HÌNH</div>
+   <div th:each="row : ${previewRows}" class="seat-row"><strong th:text="${row.key}"></strong>
+    <span th:each="s : ${row.value}" class="seat-box" th:style="${'grid-column: ' + (s.seatNumber + 1)}"
+     th:classappend="${'seat-' + s.seatType.name() + (s.active ? '' : ' seat-inactive')}">
+     <span th:text="${s.rowLabel + s.seatNumber}"></span><small th:text="${seatLabels[s.seatType.name()]}"></small>
+     <small th:unless="${s.active}">Ngừng dùng</small><small th:if="${s.id == null}">Mới</small>
+    </span>
+   </div>
+  </div>
+ </section>
+ <template id="batch-row-template"><tr>
+  <td><input data-field="rowLabel" aria-label="Tên hàng" class="form-control" maxlength="10" required></td>
+  <td><input data-field="firstNumber" aria-label="Số bắt đầu" type="number" class="form-control" min="1" max="200" value="1" required></td>
+  <td><input data-field="lastNumber" aria-label="Số kết thúc" type="number" class="form-control" min="1" max="200" value="12" required></td>
+  <td><select data-field="seatType" class="form-select" aria-label="Loại ghế"><option value="NORMAL">Thường</option><option value="VIP">VIP</option><option value="COUPLE">Ghế đôi</option></select></td>
+  <td><input data-field="active" type="checkbox" checked class="form-check-input" aria-label="Ghế hoạt động"><input data-marker="active" type="hidden" value="on"></td>
+  <td><button type="button" class="btn btn-outline-danger btn-sm" data-remove-row>Bỏ hàng</button></td>
+ </tr></template>
+</main>
+<script th:src="@{/js/seat-layout.js}" defer></script>
+<th:block th:replace="~{fragments/catalog :: footer}"></th:block>
+</body></html>

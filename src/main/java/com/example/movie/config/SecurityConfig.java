@@ -21,6 +21,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/", "/register", "/login", "/movies", "/movies/**", "/css/**", "/js/**", "/images/**", "/error").permitAll()
                 .requestMatchers("/admin/**").hasRole("ADMIN") // Chỉ ADMIN mới vào được
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/showtimes", "/showtimes/**").permitAll()
                 .anyRequest().authenticated() // Tất cả trang khác cần đăng nhập
             )
             .formLogin(form -> form

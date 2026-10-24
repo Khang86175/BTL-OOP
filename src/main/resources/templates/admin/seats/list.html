@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/catalog :: head('Trình thiết kế sơ đồ phòng chiếu')}"></head>
+<body>
+<th:block th:replace="~{fragments/navbar :: navbar}"></th:block>
+<th:block th:replace="~{fragments/schedule :: nav}"></th:block>
+<main class="container-fluid px-3 px-lg-4 page-section" id="seat-designer"
+ th:attr="data-room-id=${room.id},data-snapshot=${layoutSnapshot},data-return-url=@{/admin/seats(roomId=${room.id})}">
+ <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+  <div><p class="eyebrow text-success mb-2">CINETICKET / THIẾT KẾ PHÒNG CHIẾU</p>
+   <h1 class="h2 fw-bold">Trình thiết kế sơ đồ ghế</h1>
+   <p class="mb-0" th:text="${room.theaterName + ' / ' + room.name}"></p></div>
+  <span class="badge bg-success p-2" th:text="${#lists.isEmpty(seats)} ? 'Tạo sơ đồ mới' : 'Chỉnh sửa sơ đồ hiện có'"></span>
+ </div>
+ <th:block th:replace="~{fragments/schedule :: alerts}"></th:block>
+ <div id="designer-message" hidden role="status"></div>
+ <div class="panel p-3 mb-3">
+  <div class="row g-3 align-items-end">
+   <div class="col-sm-3 col-lg-2"><label class="form-label" for="layout-start">Hàng bắt đầu</label><input id="layout-start" class="form-control" value="A" maxlength="3"></div>
+   <div class="col-sm-3 col-lg-2"><label class="form-label" for="layout-rows">Tổng số hàng</label><input id="layout-rows" class="form-control" type="number" value="5" min="1" max="30"></div>
+   <div class="col-sm-3 col-lg-2"><label class="form-label" for="layout-count">Ghế mỗi hàng ban đầu</label><input id="layout-count" class="form-control" type="number" value="12" min="1" max="200"></div>
+   <div class="col-sm-3 col-lg-3"><button type="button" id="generate-layout" class="btn btn-success w-100">Tạo / cập nhật bố cục</button></div>
+   <div class="col-lg-3"><button type="button" id="reset-draft" class="btn btn-outline-secondary w-100">Bỏ bản nháp, tải lại</button></div>
+  </div>
+  <p class="small text-secondary mb-0 mt-2">Nút này cập nhật số ghế cả ở hàng đã có trong khoảng chọn, giữ ID và tùy chỉnh riêng. Ghế mới là Thường; ghế cũ bị giảm chỉ ngừng hoạt động. Phòng demo mới không có sẵn sơ đồ ghế.</p>
+ </div>
+ <div class="designer-workspace">
+  <section class="designer-map-panel panel">
+   <div class="designer-map-header"><h2 class="h5 mb-2">Sơ đồ trực tiếp</h2>
+    <p class="small mb-2">Chữ đầu hàng → thiết lập hàng · Tên ghế → sửa riêng · Ô chọn → chỉnh nhiều ghế</p>
+    <div class="designer-legend"><span class="legend-normal">Thường</span><span class="legend-vip">VIP</span><span class="legend-couple">Ghế đôi</span><span class="legend-off">Ngừng dùng</span></div>
+   </div>
+   <div class="designer-scroll"><div class="designer-inner" id="designer-inner">
+    <div class="designer-screen-row"><span></span><div class="screen-label designer-screen">MÀN HÌNH</div></div>
+    <div id="designer-canvas"></div>
+    <p id="designer-empty" class="text-center text-secondary p-5">Chưa có hàng ghế. Nhập hàng bắt đầu và tổng số hàng để tạo bản nháp.</p>
+   </div></div>
+   <div class="p-3 border-top"><p id="designer-summary" class="small mb-1"></p><strong id="designer-dirty" class="small text-success">Đã tải sơ đồ hiện có</strong></div>
+  </section>
+  <aside class="designer-inspector">
+   <section id="row-panel" class="panel p-3 mb-3" hidden>
+    <h2 id="row-title" class="h5">Thiết lập hàng</h2><p id="row-description" class="small text-secondary"></p>
+    <div class="row g-2 row-size-fields">
+     <div class="col-6"><label class="form-label" for="row-count">Số ghế muốn bố trí</label><input id="row-count" class="form-control" type="number" min="0" max="200"></div>
+     <div class="col-6"><label class="form-label" for="row-first">Số bắt đầu</label><input id="row-first" class="form-control" type="number" min="1" max="200"></div>
+    </div>
+    <label class="form-label mt-2" for="row-gaps">Vị trí lối đi (ví dụ 6, 7)</label><input id="row-gaps" class="form-control" placeholder="Để trống nếu không có">
+    <small class="text-secondary">Số ghế trên không tính các vị trí trống. Ghế cũ nằm tại lối đi chỉ được ngừng hoạt động và vẫn hiện xám.</small>
+    <label class="form-label mt-2" for="row-type">Loại ghế</label><select id="row-type" class="form-select"><option value="">Giữ riêng từng ghế; ghế mới là Thường</option><option value="NORMAL">Thường</option><option value="VIP">VIP</option><option value="COUPLE">Ghế đôi</option></select>
+    <label class="form-label mt-2" for="row-active">Trạng thái</label><select id="row-active" class="form-select"><option value="">Giữ riêng từng ghế; ghế mới hoạt động</option><option value="true">Hoạt động</option><option value="false">Ngừng hoạt động</option></select>
+    <div class="form-check my-3"><input id="row-override" class="form-check-input" type="checkbox"><label class="form-check-label small" for="row-override">Áp dụng loại/trạng thái đã chọn cho cả ghế đã có. Tôi đồng ý thay các tùy chỉnh riêng tương ứng.</label></div>
+    <button type="button" id="apply-row" class="btn btn-success w-100">Cập nhật hàng trong bản nháp</button>
+    <button type="button" id="select-row" class="btn btn-outline-secondary w-100 mt-2">Chọn toàn bộ hàng này</button>
+    <button type="button" id="remove-row" class="btn btn-outline-danger w-100 mt-2">Xóa hàng / ngừng hoạt động hàng cũ</button>
+   </section>
+   <section id="seat-panel" class="panel p-3 mb-3" hidden>
+    <h2 id="seat-title" class="h5">Chỉnh sửa ghế</h2>
+    <label class="form-label" for="seat-type">Loại ghế</label><select id="seat-type" class="form-select"><option value="NORMAL">Thường</option><option value="VIP">VIP</option><option value="COUPLE">Ghế đôi</option></select>
+    <label class="form-label mt-2" for="seat-active">Trạng thái</label><select id="seat-active" class="form-select"><option value="true">Hoạt động</option><option value="false">Ngừng hoạt động</option></select>
+    <button type="button" id="apply-seat" class="btn btn-success w-100 mt-3">Cập nhật ghế trong bản nháp</button>
+    <button type="button" id="remove-seat" class="btn btn-outline-danger w-100 mt-2">Bỏ vị trí / tắt ghế cũ</button>
+    <a id="single-seat-edit" class="btn btn-outline-secondary w-100 mt-2" hidden>Trang sửa riêng ghế đã lưu</a>
+   </section>
+   <section class="panel p-3 mb-3">
+    <h2 class="h5">Chỉnh sửa nhiều ghế</h2><p id="selected-count" aria-live="polite">Đã chọn: 0</p>
+    <div class="d-flex gap-2 mb-2"><button type="button" id="select-all" class="btn btn-outline-secondary btn-sm">Chọn tất cả</button><button type="button" id="clear-selection" class="btn btn-outline-secondary btn-sm">Bỏ chọn</button></div>
+    <label class="form-label" for="selection-type">Loại ghế mới</label><select id="selection-type" class="form-select"><option value="">Giữ nguyên loại</option><option value="NORMAL">Thường</option><option value="VIP">VIP</option><option value="COUPLE">Ghế đôi</option></select>
+    <label class="form-label mt-2" for="selection-active">Trạng thái mới</label><select id="selection-active" class="form-select"><option value="">Giữ nguyên trạng thái</option><option value="true">Hoạt động</option><option value="false">Ngừng hoạt động</option></select>
+    <button type="button" id="apply-selection" class="btn btn-outline-success w-100 mt-3">Áp dụng vào bản nháp</button>
+   </section>
+   <form id="designer-form" class="panel p-3" method="post" th:action="@{/admin/seats/designer}" th:attr="data-csrf-header=${_csrf.headerName}">
+    <h2 class="h5">Lưu toàn bộ sơ đồ</h2><p class="small">Mọi thay đổi phía trên chỉ là bản nháp. Ghế đã lưu bị bỏ được tắt để giữ ID và tham chiếu; không xóa cứng.</p>
+    <div class="form-check mb-3"><input id="confirm-existing" class="form-check-input" type="checkbox"><label for="confirm-existing" class="form-check-label small">Tôi xác nhận các thay đổi loại/trạng thái ghế đã lưu, bao gồm ghế chuyển sang ngừng hoạt động.</label></div>
+    <button id="designer-save" type="submit" class="btn btn-success w-100">Lưu sơ đồ phòng chiếu</button>
+   </form>
+  </aside>
+ </div>
+ <div id="designer-seed" hidden>
+  <span th:each="s : ${seats}" th:attr="data-seat-id=${s.id},data-row=${s.rowLabel},data-number=${s.seatNumber},data-type=${s.seatType.name()},data-active=${s.active}">
+   <span th:text="${seatLabels[s.seatType.name()]}"></span><span th:unless="${s.active}">Ngừng dùng</span>
+  </span>
+ </div>
+ <noscript><div class="alert alert-warning mt-3">Bật JavaScript để dùng trình thiết kế. Bạn vẫn có thể <a th:href="@{/admin/seats/new(roomId=${room.id})}">thêm từng ghế</a> hoặc sửa ghế đã có:</div>
+  <a th:each="s : ${seats}" class="btn btn-outline-secondary btn-sm m-1" th:href="@{/admin/seats/{id}/edit(id=${s.id})}" th:text="${s.rowLabel+s.seatNumber}"></a>
+ </noscript>
+</main>
+<script th:src="@{/js/seat-designer-model.js}" defer></script>
+<script th:src="@{/js/seat-designer.js}" defer></script>
+<th:block th:replace="~{fragments/catalog :: footer}"></th:block>
+</body></html>

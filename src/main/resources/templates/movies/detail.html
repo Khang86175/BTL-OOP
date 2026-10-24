@@ -24,7 +24,7 @@
             <hr class="my-4"><h2 class="h4">Nội dung phim</h2>
             <p class="synopsis text-secondary" th:text="${movie.synopsis}"></p>
             <a th:if="${movie.trailerUrl != null}" th:href="${movie.trailerUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-success mt-3">▶ Xem trailer <span class="visually-hidden">(mở tab mới)</span></a>
-            <p class="small text-secondary mt-4">Lịch chiếu sẽ được cập nhật sau.</p>
+            <a th:href="@{/showtimes(movieId=${movie.id})}" class="btn btn-outline-success mt-3">Xem lịch chiếu</a>
         </div>
     </div>
 </main>

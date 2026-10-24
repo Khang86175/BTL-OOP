@@ -1,0 +1,9 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/catalog :: head('Thông tin suất chiếu')}"></head>
+<body><th:block th:replace="~{fragments/navbar :: navbar}"></th:block>
+<th:block th:replace="~{fragments/schedule :: nav}"></th:block>
+<main class="container page-section"><h1 class="fw-bold mb-4">Thông tin suất chiếu</h1>
+<th:block th:replace="~{fragments/schedule :: alerts}"></th:block>
+<div class="schedule-card"><h2 th:text="${showtime.movieTitle}"></h2><p th:text="${showtime.theaterName + ' · ' + showtime.theaterAddress}"></p><p th:text="${showtime.roomName + ' · ' + roomLabels[showtime.roomType.name()]}"></p><p th:text="${#temporals.format(showtime.startTime,'dd/MM/yyyy HH:mm') + ' → ' + #temporals.format(showtime.endTime,'dd/MM/yyyy HH:mm')}"></p><p th:text="${'Giá cơ bản: ' + #numbers.formatDecimal(showtime.basePrice,0,'COMMA',0,'POINT') + ' đ'}"></p><p class="text-secondary">Suất đang mở bán. Chức năng chọn ghế và đặt vé sẽ được bổ sung sau.</p><a class="btn btn-outline-success" th:href="@{/showtimes(movieId=${showtime.movieId},theaterId=${showtime.theaterId},date=${showtime.startTime.toLocalDate()})}">Quay lại lịch chiếu</a></div>
+</main><th:block th:replace="~{fragments/catalog :: footer}"></th:block></body></html>
