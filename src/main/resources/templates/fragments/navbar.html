@@ -13,8 +13,14 @@
             <a th:if="${isAdmin}" class="nav-catalog" th:href="@{/admin/rooms}">Phòng và ghế</a>
             <a th:if="${isAdmin}" class="nav-catalog" th:href="@{/admin/showtimes}">Quản lý lịch</a>
             <th:block th:if="${isLoggedIn}">
-                <span class="navbar-text small" th:text="${loginName}"></span>
                 <form th:action="@{/logout}" method="post" class="m-0"><button type="submit" class="btn btn-outline-light btn-sm">Đăng xuất</button></form>
+                <a class="profile-nav-link" th:href="@{/profile}" aria-label="Hồ sơ người dùng" title="Hồ sơ người dùng">
+                    <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+                        <circle cx="24" cy="24" r="21" />
+                        <circle class="profile-nav-head" cx="24" cy="17" r="6" />
+                        <path d="M10.5 38c2.2-6.2 7-9.5 13.5-9.5s11.3 3.3 13.5 9.5" />
+                    </svg>
+                </a>
             </th:block>
             <th:block th:unless="${isLoggedIn}">
                 <a class="btn btn-outline-light btn-sm" th:href="@{/login}">Đăng nhập</a>

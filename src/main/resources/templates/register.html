@@ -19,19 +19,24 @@
         <form th:action="@{/register}" th:object="${registerDto}" method="post">
             <div class="mb-3">
                 <label>Họ tên:</label>
-                <input type="text" th:field="*{fullName}" class="form-control" required />
+                <input type="text" th:field="*{fullName}" class="form-control" maxlength="255" required />
+                <div class="text-danger" th:if="${#fields.hasErrors('fullName')}" th:errors="*{fullName}"></div>
             </div>
             <div class="mb-3">
                 <label>Email:</label>
-                <input type="email" th:field="*{email}" class="form-control" required />
+                <input type="email" th:field="*{email}" class="form-control" maxlength="255" required />
+                <div class="text-danger" th:if="${#fields.hasErrors('email')}" th:errors="*{email}"></div>
             </div>
             <div class="mb-3">
                 <label>Số điện thoại:</label>
-                <input type="text" th:field="*{phone}" class="form-control" />
+                <input type="tel" th:field="*{phone}" class="form-control" inputmode="numeric"
+                       autocomplete="tel" pattern="[0-9]{10,11}" maxlength="11" />
+                <div class="text-danger" th:if="${#fields.hasErrors('phone')}" th:errors="*{phone}"></div>
             </div>
             <div class="mb-3">
                 <label>Mật khẩu:</label>
                 <input type="password" th:field="*{password}" class="form-control" required />
+                <div class="text-danger" th:if="${#fields.hasErrors('password')}" th:errors="*{password}"></div>
             </div>
             <button type="submit" class="btn btn-success w-100">Đăng ký</button>
         </form>
