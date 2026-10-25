@@ -20,7 +20,8 @@ class SeatDeletionSchemaSafetyTest {
  Long roomId;
  @BeforeEach void setup(){
   var theater=theaters.create(new TheaterForm("Missing FK","Test",true));roomId=rooms.create(new RoomForm(theater.getId(),"A",RoomType.TWO_D,true)).getId();
-  jdbc.execute("create table if not exists booking_seats(id bigint primary key, seat_id bigint)");
+  jdbc.execute("drop table if exists booking_seats");
+  jdbc.execute("create table booking_seats(id bigint primary key, seat_id bigint)");
  }
  @AfterEach void cleanup(){repository.deleteAll();roomRepository.deleteAll();theaterRepository.deleteAll();}
  @Test void missingBookingForeignKeyBlocksDestructiveOperations(){
