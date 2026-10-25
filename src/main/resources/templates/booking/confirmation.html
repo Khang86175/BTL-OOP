@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/catalog :: head('Xác nhận đặt vé')}"></head>
+<body class="bg-light">
+<th:block th:replace="~{fragments/navbar :: navbar}"></th:block>
+<main class="container page-section">
+    <section class="schedule-card mx-auto" style="max-width: 760px;">
+        <h1 class="fw-bold mb-4">Đặt vé thành công</h1>
+        <p class="mb-2">Mã đặt vé: <strong th:text="${booking.bookingId}"></strong></p>
+        <h2 class="h5 mt-4">Ghế đã đặt</h2>
+        <ul class="mb-4">
+            <li th:each="seatName : ${booking.seatNames}" th:text="${seatName}"></li>
+        </ul>
+        <p class="fs-5">Tổng tiền:
+            <strong class="text-success"
+                    th:text="${#numbers.formatDecimal(booking.totalAmount,0,'COMMA',2,'POINT') + ' đ'}"></strong>
+        </p>
+        <div id="payment-notice" class="alert alert-info" role="status">
+            Thanh toán trực tuyến chưa được tích hợp. Đơn đặt vé đã được ghi nhận, nhưng chưa thực hiện giao dịch thanh toán.
+        </div>
+        <div class="d-flex flex-wrap gap-2 mt-4">
+            <a class="btn btn-outline-success" th:href="@{/showtimes}">Quay lại lịch chiếu</a>
+            <a class="btn btn-success" href="#payment-notice">Thanh toán</a>
+        </div>
+    </section>
+</main>
+<th:block th:replace="~{fragments/catalog :: footer}"></th:block>
+</body>
+</html>

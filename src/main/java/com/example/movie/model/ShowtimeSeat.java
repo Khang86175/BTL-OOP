@@ -1,49 +1,36 @@
 package com.example.movie.model;
 
-import jakarta.persistence.*;
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.ManyToOne;
 
 @Entity
-@Table(
-        name = "showtime_seats",
-        uniqueConstraints = @UniqueConstraint(
-                name = "uk_showtime_seat",
-                columnNames = {"showtime_id", "seat_id"}
-        )
-)
 public class ShowtimeSeat {
 
+    // Khóa chính tự tăng
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "showtime_id", nullable = false)
+    // Quan hệ N-1: Nhiều ghế này cùng thuộc về 1 suất chiếu cụ thể
+    @ManyToOne
     private Showtime showtime;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "seat_id", nullable = false)
+    // Quan hệ N-1: Liên kết với chiếc ghế vật lý (số ghế, hàng ghế) trong phòng chiếu
+    @ManyToOne
     private Seat seat;
 
+    // Lưu trạng thái ghế dưới dạng chữ (Ví dụ: "AVAILABLE", "BOOKED") vào database thay vì số 0, 1
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20)
     private SeatStatus status;
 
-    @Column(name = "hold_expires_at")
-    private LocalDateTime holdExpiresAt;
 
-    @Column(name = "price", precision = 12, scale = 2)
-    private BigDecimal price;
 
     public ShowtimeSeat() {
-    }
-
-    public ShowtimeSeat(Showtime showtime, Seat seat, SeatStatus status, BigDecimal price) {
-        this.showtime = showtime;
-        this.seat = seat;
-        this.status = status;
-        this.price = price;
     }
 
     public Long getId() {
@@ -76,21 +63,5 @@ public class ShowtimeSeat {
 
     public void setStatus(SeatStatus status) {
         this.status = status;
-    }
-
-    public LocalDateTime getHoldExpiresAt() {
-        return holdExpiresAt;
-    }
-
-    public void setHoldExpiresAt(LocalDateTime holdExpiresAt) {
-        this.holdExpiresAt = holdExpiresAt;
-    }
-
-    public BigDecimal getPrice() {
-        return price;
-    }
-
-    public void setPrice(BigDecimal price) {
-        this.price = price;
     }
 }

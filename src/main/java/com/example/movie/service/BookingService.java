@@ -4,15 +4,15 @@ import com.example.movie.dto.BookingRequest;
 import com.example.movie.dto.BookingResponse;
 import com.example.movie.model.*;
 import com.example.movie.repository.*;
-import com.example.movie.service.pricing.SeatPriceCalculator;
-import com.example.movie.service.pricing.SeatPriceCalculatorFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class BookingService {
@@ -22,111 +22,115 @@ public class BookingService {
     private final ShowtimeRepository showtimeRepository;
     private final SeatRepository seatRepository;
     private final UserRepository userRepository;
-    private final SeatPriceCalculatorFactory calculatorFactory;
 
     public BookingService(BookingRepository bookingRepository,
                           ShowtimeSeatRepository showtimeSeatRepository,
                           ShowtimeRepository showtimeRepository,
                           SeatRepository seatRepository,
-                          UserRepository userRepository,
-                          SeatPriceCalculatorFactory calculatorFactory) {
+                          UserRepository userRepository) {
         this.bookingRepository = bookingRepository;
         this.showtimeSeatRepository = showtimeSeatRepository;
         this.showtimeRepository = showtimeRepository;
         this.seatRepository = seatRepository;
         this.userRepository = userRepository;
-        this.calculatorFactory = calculatorFactory;
     }
 
-    // 1. Tự sinh ghế nếu suất chiếu chưa có dữ liệu ghế
     @Transactional
     public List<ShowtimeSeat> getOrCreateShowtimeSeats(Long showtimeId) {
-        List<ShowtimeSeat> seats = showtimeSeatRepository.findByShowtimeId(showtimeId);
-        if (!seats.isEmpty()) {
-            return seats;
-        }
-
         Showtime showtime = showtimeRepository.findById(showtimeId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy suất chiếu với ID: " + showtimeId));
-
-        // Lấy tất cả ghế và lọc theo ID của phòng chiếu
-        Long targetRoomId = showtime.getRoom().getId();
-        List<Seat> roomSeats = seatRepository.findAll().stream()
-                .filter(seat -> seat.getRoom() != null && seat.getRoom().getId().equals(targetRoomId))
-                .toList();
-
-        List<ShowtimeSeat> generatedSeats = new ArrayList<>();
-        for (Seat seat : roomSeats) {
-            ShowtimeSeat ss = new ShowtimeSeat();
-            ss.setShowtime(showtime);
-            ss.setSeat(seat);
-            ss.setStatus(SeatStatus.AVAILABLE);
-            generatedSeats.add(ss);
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy suất chiếu."));
+        if (!showtime.isBookableAt(LocalDateTime.now(Movie.CINEMA_ZONE))) {
+            throw new IllegalArgumentException("Suất chiếu hiện không mở bán.");
         }
 
-        return showtimeSeatRepository.saveAll(generatedSeats);
+        List<Seat> roomSeats = seatRepository.findByRoomIdAndActiveTrueOrderByRowLabelAscSeatNumberAsc(
+                        showtime.getRoom().getId()).stream()
+                .filter(seat -> seat.getSeatType() != null && seat.getSeatType().isSupported())
+                .toList();
+        List<ShowtimeSeat> existingSeats = showtimeSeatRepository.findByShowtimeId(showtimeId);
+        Set<Long> existingSeatIds = new HashSet<>();
+        for (ShowtimeSeat existingSeat : existingSeats) {
+            existingSeatIds.add(existingSeat.getSeat().getId());
+        }
+
+        List<ShowtimeSeat> newShowtimeSeats = new ArrayList<>();
+        for (Seat seat : roomSeats) {
+            if (existingSeatIds.contains(seat.getId())) {
+                continue;
+            }
+            ShowtimeSeat showtimeSeat = new ShowtimeSeat();
+            showtimeSeat.setShowtime(showtime);
+            showtimeSeat.setSeat(seat);
+            showtimeSeat.setStatus(SeatStatus.AVAILABLE);
+            newShowtimeSeats.add(showtimeSeat);
+        }
+        if (!newShowtimeSeats.isEmpty()) {
+            showtimeSeatRepository.saveAll(newShowtimeSeats);
+        }
+
+        Set<Long> activeSeatIds = new HashSet<>();
+        for (Seat seat : roomSeats) {
+            activeSeatIds.add(seat.getId());
+        }
+        return showtimeSeatRepository.findByShowtimeId(showtimeId).stream()
+                .filter(showtimeSeat -> activeSeatIds.contains(showtimeSeat.getSeat().getId()))
+                .toList();
     }
 
-    // 2. Tạo booking, dùng getter getSeatIds(), getShowtimeId() chuẩn xác
     @Transactional
-    public BookingResponse createBooking(Long currentUserId, BookingRequest request) {
-        if (request.getSeatIds() == null || request.getSeatIds().isEmpty() || request.getSeatIds().size() > 8) {
-            throw new IllegalArgumentException("Số lượng ghế đặt trong một lượt phải từ 1 đến 8 ghế");
+    public BookingResponse createBooking(Long userId, BookingRequest request) {
+        if (request.getShowtimeId() == null || request.getSeatIds() == null || request.getSeatIds().isEmpty()) {
+            throw new IllegalArgumentException("Vui lòng chọn ít nhất 1 ghế!");
+        }
+        if (request.getSeatIds().contains(null)
+                || request.getSeatIds().stream().distinct().count() != request.getSeatIds().size()) {
+            throw new IllegalArgumentException("Danh sách ghế không hợp lệ.");
         }
 
-        // Đảm bảo ghế của suất chiếu đã được khởi tạo
-        getOrCreateShowtimeSeats(request.getShowtimeId());
+        Showtime showtime = showtimeRepository.findById(request.getShowtimeId())
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy suất chiếu."));
+        if (!showtime.isBookableAt(LocalDateTime.now(Movie.CINEMA_ZONE))) {
+            throw new IllegalArgumentException("Suất chiếu hiện không mở bán.");
+        }
 
-        // Khóa các dòng ghế cần đặt trong database
         List<ShowtimeSeat> selectedSeats = showtimeSeatRepository
-                .findSeatsForBookingWithLock(request.getShowtimeId(), request.getSeatIds());
-
+                .findByShowtimeIdAndSeatIdIn(request.getShowtimeId(), request.getSeatIds());
         if (selectedSeats.size() != request.getSeatIds().size()) {
-            throw new IllegalArgumentException("Một số ghế không tồn tại hoặc không thuộc suất chiếu này");
+            throw new IllegalArgumentException("Có ghế không thuộc suất chiếu này. Vui lòng tải lại sơ đồ ghế.");
         }
-
-        // Kiểm tra ghế còn trống không
-        for (ShowtimeSeat s : selectedSeats) {
-            if (s.getStatus() != SeatStatus.AVAILABLE) {
-                throw new IllegalStateException("Ghế đã có người giữ hoặc đặt");
+        for (ShowtimeSeat seat : selectedSeats) {
+            if (seat.getStatus() != SeatStatus.AVAILABLE) {
+                throw new IllegalStateException("Ghế đã có người đặt, vui lòng chọn ghế khác!");
             }
         }
 
-        // Tính tiền đa hình và chuyển trạng thái ghế sang HELD
         BigDecimal totalAmount = BigDecimal.ZERO;
-        for (ShowtimeSeat s : selectedSeats) {
-            SeatPriceCalculator calculator = calculatorFactory.getCalculator(s.getSeat().getSeatType());
-            totalAmount = totalAmount.add(calculator.calculate(s.getShowtime().getBasePrice()));
-            s.setStatus(SeatStatus.HELD);
+        List<String> seatNames = new ArrayList<>();
+        for (ShowtimeSeat seat : selectedSeats) {
+            totalAmount = totalAmount.add(showtime.priceFor(seat.getSeat().getSeatType()));
+            seat.setStatus(SeatStatus.BOOKED);
+            seatNames.add(seat.getSeat().getRowLabel() + seat.getSeat().getSeatNumber());
         }
         showtimeSeatRepository.saveAll(selectedSeats);
 
-        // Lưu đơn đặt vé với trạng thái PENDING_PAYMENT
-        User user = userRepository.findById(currentUserId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy thông tin tài khoản người dùng"));
-
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy user."));
         Booking booking = new Booking();
         booking.setUser(user);
-        booking.setShowtime(selectedSeats.get(0).getShowtime());
+        booking.setShowtime(showtime);
         booking.setTotalAmount(totalAmount);
-        booking.setStatus(BookingStatus.PENDING_PAYMENT);
-        booking.setCreatedAt(LocalDateTime.now());
-
-        Booking saved = bookingRepository.save(booking);
-
-        // Trả về DTO an toàn
-        List<String> seatLabels = selectedSeats.stream()
-                .map(s -> "Ghế #" + s.getSeat().getId())
-                .toList();
+        booking.setStatus(BookingStatus.CONFIRMED);
+        booking.setCreatedAt(LocalDateTime.now(Movie.CINEMA_ZONE));
+        Booking savedBooking = bookingRepository.save(booking);
 
         return new BookingResponse(
-                saved.getId(),
-                saved.getShowtime().getId(),
+                savedBooking.getId(),
+                showtime.getId(),
                 user.getId().toString(),
-                saved.getTotalAmount(),
-                saved.getStatus().name(),
-                saved.getCreatedAt(),
-                seatLabels
+                totalAmount,
+                savedBooking.getStatus().name(),
+                savedBooking.getCreatedAt(),
+                seatNames
         );
     }
 }

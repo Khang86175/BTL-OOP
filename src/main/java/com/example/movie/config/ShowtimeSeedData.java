@@ -48,7 +48,8 @@ public class ShowtimeSeedData {
   for(int i=0;i<2;i++) {
    Showtime s=new Showtime();s.setMovie(movie);s.setRoom(r);s.setStartTime(start);
    s.setEndTime(start.plusMinutes(movie.getDurationMinutes()));
-   s.setBasePrice(new BigDecimal("90000"));s.setStatus(ShowtimeStatus.OPEN);showtimes.save(s);
+   s.setBasePrice(new BigDecimal("90000"));s.setNormalPrice(new BigDecimal("90000"));s.setVipPrice(new BigDecimal("110000"));
+   s.setStatus(ShowtimeStatus.OPEN);showtimes.save(s);
    start=s.getEndTime().plusMinutes(30);
   }
  }

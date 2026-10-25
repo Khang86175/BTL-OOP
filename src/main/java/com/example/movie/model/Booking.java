@@ -1,40 +1,43 @@
 package com.example.movie.model;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.ManyToOne;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "bookings")
 public class Booking {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    // Quan hệ N-1: Nhiều hóa đơn có thể thuộc về 1 người dùng
+    @ManyToOne
     private User user;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "showtime_id", nullable = false)
+    // Quan hệ N-1: Nhiều hóa đơn có thể đặt cho cùng 1 suất chiếu
+    @ManyToOne
     private Showtime showtime;
 
-    @Column(name = "total_amount", nullable = false, precision = 12, scale = 2)
+    // Tổng tiền của đơn hàng
     private BigDecimal totalAmount;
 
+    // Trạng thái đơn hàng (Ví dụ: CONFIRMED)
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20)
     private BookingStatus status;
 
-    @Column(name = "created_at", nullable = false)
+    // Thời gian khách bấm đặt vé
     private LocalDateTime createdAt;
-
-    @Column(name = "expires_at")
-    private LocalDateTime expiresAt;
 
     public Booking() {
     }
+
 
     public Long getId() {
         return id;
@@ -82,13 +85,5 @@ public class Booking {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getExpiresAt() {
-        return expiresAt;
-    }
-
-    public void setExpiresAt(LocalDateTime expiresAt) {
-        this.expiresAt = expiresAt;
     }
 }

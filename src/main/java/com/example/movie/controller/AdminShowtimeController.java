@@ -13,9 +13,11 @@ public class AdminShowtimeController {
  private final ShowtimeService schedules;private final RoomService rooms;private final MovieService movies;
  public AdminShowtimeController(ShowtimeService schedules,RoomService rooms,MovieService movies){this.schedules=schedules;this.rooms=rooms;this.movies=movies;}
  @GetMapping public String list(Model m){m.addAttribute("showtimes",schedules.findForAdmin());return "admin/showtimes/list";}
- @GetMapping("/new") public String form(Model m){m.addAttribute("form",new ShowtimeForm(null,null,null,null,ShowtimeStatus.OPEN));return prepare(null,m);}
+ @GetMapping("/new") public String form(Model m){m.addAttribute("form",new ShowtimeForm(null,null,null,null,null,ShowtimeStatus.OPEN));return prepare(null,m);}
  @GetMapping("/{id}/edit") public String edit(@PathVariable Long id,Model m){
-  var s=schedules.getForAdmin(id);m.addAttribute("form",new ShowtimeForm(s.movieId(),s.roomId(),s.startTime(),s.basePrice(),s.status()));return prepare(id,m);
+  var s=schedules.getForAdmin(id);m.addAttribute("form",new ShowtimeForm(s.movieId(),s.roomId(),s.startTime(),s.normalPrice(),s.vipPrice(),s.status()));
+  if(s.normalPrice()==null||s.vipPrice()==null)m.addAttribute("failure","Lịch cũ chưa có đủ hai mức giá. Hãy nhập giá Thường và VIP trước khi mở bán; giá cũ được giữ nguyên.");
+  return prepare(id,m);
  }
  @PostMapping public String create(@Valid @ModelAttribute("form") ShowtimeForm f,BindingResult e,Model m,RedirectAttributes r){return save(null,f,e,m,r);}
  @PostMapping("/{id}") public String update(@PathVariable Long id,@Valid @ModelAttribute("form") ShowtimeForm f,BindingResult e,Model m,RedirectAttributes r){return save(id,f,e,m,r);}
