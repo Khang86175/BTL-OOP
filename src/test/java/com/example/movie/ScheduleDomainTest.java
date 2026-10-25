@@ -26,6 +26,7 @@ class ScheduleDomainTest {
   showtime.setRoom(room);
   showtime.setStatus(ShowtimeStatus.OPEN);
   showtime.setStartTime(now.plusHours(1));
+  showtime.setNormalPrice(new java.math.BigDecimal("80000"));showtime.setVipPrice(new java.math.BigDecimal("100000"));
  }
 
  @Test void operationalRequiresBothRoomAndTheaterActive() {
@@ -87,5 +88,11 @@ class ScheduleDomainTest {
   showtime.setStartTime(null);
   assertThat(showtime.isBookableAt(now)).isFalse();
   assertThatNullPointerException().isThrownBy(() -> showtime.isBookableAt(null));
+ }
+ @Test void missingOrNonPositivePricesPreventBooking(){
+  showtime.setVipPrice(null);assertThat(showtime.isBookableAt(now)).isFalse();
+  showtime.setVipPrice(java.math.BigDecimal.ZERO);assertThat(showtime.isBookableAt(now)).isFalse();
+  showtime.setVipPrice(new java.math.BigDecimal("50000"));assertThat(showtime.isBookableAt(now)).isTrue();
+  showtime.setNormalPrice(null);assertThat(showtime.isBookableAt(now)).isFalse();
  }
 }

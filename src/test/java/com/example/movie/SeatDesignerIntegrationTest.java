@@ -10,184 +10,127 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.dao.DataIntegrityViolationException;
 import java.util.*;
-import java.util.concurrent.*;
 import static org.assertj.core.api.Assertions.*;
-import static org.hamcrest.Matchers.containsString;
-import static org.mockito.Mockito.*;
+import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.*;
 
-@SpringBootTest(properties="spring.datasource.url=jdbc:h2:mem:person3_designer;MODE=MySQL;DB_CLOSE_DELAY=-1")
+@SpringBootTest(properties="spring.datasource.url=jdbc:h2:mem:person3_simple_web;MODE=MySQL;DB_CLOSE_DELAY=-1")
 @AutoConfigureMockMvc @ActiveProfiles("test") @WithMockUser(roles="ADMIN")
 class SeatDesignerIntegrationTest {
- @Autowired SeatService seats; @Autowired TheaterService theaters; @Autowired RoomService rooms;
- @MockitoSpyBean SeatRepository repository;
- @Autowired RoomRepository roomRepository; @Autowired TheaterRepository theaterRepository;
- @Autowired PlatformTransactionManager txManager; @Autowired MockMvc mvc;
- Long roomId,theaterId,id;
- @BeforeEach void setup(){
-  theaterId=theaters.create(new TheaterForm("Rạp Designer","Địa chỉ test",true)).getId();
-  roomId=rooms.create(new RoomForm(theaterId,"Phòng A",RoomType.TWO_D,true)).getId();
-  id=seats.create(new SeatForm(roomId,"A",1,SeatType.VIP,true)).getId();
+ @Autowired MockMvc mvc; @Autowired SeatService seats; @Autowired RoomService rooms; @Autowired TheaterService theaters;
+ @Autowired SeatRepository repository; @Autowired RoomRepository roomRepository; @Autowired TheaterRepository theaterRepository;
+ @Autowired PlatformTransactionManager txManager;
+ @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
+ Long roomId;
+ @BeforeEach void setup(){var t=theaters.create(new TheaterForm("Rạp đơn giản","Địa chỉ",true));roomId=rooms.create(new RoomForm(t.getId(),"A",RoomType.TWO_D,true)).getId();}
+ @AfterEach void cleanup(){repository.deleteAll();roomRepository.deleteAll();theaterRepository.deleteAll();}
+ org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder create(){return post("/admin/seats/layout").with(csrf()).param("roomId",roomId.toString()).param("rowCount","5").param("seatsPerRow","8");}
+ org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder update(Long id,String type,String active){return post("/admin/seats/"+id).with(csrf()).param("roomId",roomId.toString()).param("rowLabel","A").param("seatNumber","1").param("seatType",type).param("active",active);}
+ @Test void emptyRoomShowsOnlyInitialDimensionsAndGetNeverWrites() throws Exception {
+  for(int i=0;i<2;i++)mvc.perform(get("/admin/seats").param("roomId",roomId.toString())).andExpect(status().isOk())
+   .andExpect(content().string(containsString("id=\"create-layout-form\""))).andExpect(content().string(containsString("Số hàng ghế"))).andExpect(content().string(containsString("Số ghế mỗi hàng"))).andExpect(content().string(containsString("_csrf")));
+  assertThat(repository.count()).isZero();
  }
- @AfterEach void cleanup(){
-  reset(repository);
-  new TransactionTemplate(txManager).executeWithoutResult(tx->{
-   repository.deleteAll();repository.flush();roomRepository.deleteAll();roomRepository.flush();theaterRepository.deleteAll();
-  });
+ @Test void createsFortyAndSubsequentGetKeepsSizeControlsWithoutAddingSeats() throws Exception {
+  mvc.perform(create()).andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/admin/seats?roomId="+roomId));
+  var before=seats.findByRoom(roomId);assertThat(before).hasSize(40);
+  for(int i=0;i<2;i++)mvc.perform(get("/admin/seats").param("roomId",roomId.toString())).andExpect(status().isOk())
+   .andExpect(content().string(containsString("id=\"create-layout-form\""))).andExpect(content().string(containsString("Cập nhật sơ đồ"))).andExpect(content().string(containsString("E8")));
+  assertThat(seats.findByRoom(roomId)).containsExactlyElementsOf(before);
  }
- SeatLayoutSeatForm seat(Long id,String row,int n,SeatType type,boolean active){return new SeatLayoutSeatForm(id,row,n,type,active);}
- SeatLayoutSeatForm existing(){return seat(id,"A",1,SeatType.VIP,true);}
- SeatLayoutForm form(List<SeatLayoutSeatForm> desired,boolean confirm){return new SeatLayoutForm(roomId,seats.loadLayout(roomId).snapshot(),desired,confirm);}
- @Test void createsInitialAThroughEAndPreservesExistingA(){
-  var desired=new ArrayList<SeatLayoutSeatForm>();desired.add(existing());
-  for(String row:List.of("A","B","C","D","E"))for(int n=1;n<=12;n++){
-   if(row.equals("A")&&n==1)continue;
-   desired.add(seat(null,row,n,SeatType.NORMAL,true));
+ @Test void existingRoomCanGrowPreservingSavedSeats() throws Exception {
+  var before=seats.createLayout(new SeatLayoutCreateForm(roomId,1,2));
+  mvc.perform(create()).andExpect(status().is3xxRedirection());
+  assertThat(seats.findByRoom(roomId)).hasSize(40).containsAll(before);
+ }
+ @Test void invalidDimensionsRenderVietnameseValidation() throws Exception {
+  mvc.perform(post("/admin/seats/layout").with(csrf()).param("roomId",roomId.toString()).param("rowCount","0").param("seatsPerRow","8")).andExpect(status().isOk()).andExpect(model().attributeHasFieldErrors("createForm","rowCount"));assertThat(repository.count()).isZero();
+ }
+ @Test void invalidNumericDimensionsNeverCreateSeats() throws Exception {
+  mvc.perform(post("/admin/seats/layout").with(csrf()).param("roomId",roomId.toString()).param("rowCount","abc").param("seatsPerRow","8"))
+   .andExpect(status().isOk()).andExpect(model().attributeHasFieldErrors("createForm","rowCount"));assertThat(repository.count()).isZero();
+ }
+ @Test void noRetiredControlsOrCoupleOptionsRendered() throws Exception {
+  var s=seats.createLayout(new SeatLayoutCreateForm(roomId,1,2)).getFirst();
+  for(String url:List.of("/admin/seats?roomId="+roomId,"/admin/seats/"+s.id()+"/edit")){
+   var response=mvc.perform(get(url)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+   for(String removed:List.of("value=\"COUPLE\"","Ghế đôi","row-gaps","row-first","row-panel","selection-type","batch-update","generate-layout","type=\"checkbox\" name=\"seatIds\""))assertThat(response).doesNotContain(removed);
   }
-  var result=seats.saveLayout(form(desired,false));
-  assertThat(result.created()).isEqualTo(59);
-  assertThat(seats.findByRoom(roomId)).hasSize(60);
-  assertThat(seats.getById(id).seatType()).isEqualTo(SeatType.VIP);
  }
- @Test void editsExistingAWithoutDuplicateOrIdChange(){
-  seats.saveLayout(form(List.of(seat(id,"A",1,SeatType.COUPLE,false)),true));
-  assertThat(repository.count()).isEqualTo(1);
-  assertThat(seats.getById(id).seatType()).isEqualTo(SeatType.COUPLE);
-  assertThat(seats.getById(id).active()).isFalse();
+ @Test void updatesVipThenNormalWithoutChangingId() throws Exception {
+  var s=seats.createLayout(new SeatLayoutCreateForm(roomId,1,1)).getFirst();
+  mvc.perform(update(s.id(),"VIP","true")).andExpect(status().is3xxRedirection());assertThat(repository.findById(s.id()).orElseThrow().getSeatType()).isEqualTo(SeatType.VIP);
+  mvc.perform(update(s.id(),"NORMAL","true")).andExpect(status().is3xxRedirection());assertThat(seats.findByRoom(roomId)).containsExactly(s);
  }
- @Test void mapsExistingPositionToOriginalIdEvenWhenClientOmitsId(){
-  seats.saveLayout(form(List.of(seat(null," a ",1,SeatType.VIP,true)),false));
-  assertThat(repository.count()).isEqualTo(1);
-  assertThat(seats.findByRoom(roomId).getFirst().id()).isEqualTo(id);
+ @Test void updateUncheckedActiveAndExplicitReactivate() throws Exception {
+  var s=seats.createLayout(new SeatLayoutCreateForm(roomId,1,1)).getFirst();
+  mvc.perform(post("/admin/seats/"+s.id()).with(csrf()).param("roomId",roomId.toString()).param("rowLabel","A").param("seatNumber","1").param("seatType","NORMAL").param("_active","on"))
+   .andExpect(status().is3xxRedirection());assertThat(repository.findById(s.id()).orElseThrow().isActive()).isFalse();
+  mvc.perform(update(s.id(),"NORMAL","true")).andExpect(status().is3xxRedirection());assertThat(repository.findById(s.id()).orElseThrow().isActive()).isTrue();
  }
- @Test void increasingRowAddsOnlyNewPositions(){
-  seats.saveLayout(form(List.of(existing(),seat(null,"A",2,SeatType.NORMAL,true),seat(null,"A",3,SeatType.NORMAL,true)),false));
-  assertThat(repository.count()).isEqualTo(3);
-  assertThat(seats.getById(id).seatType()).isEqualTo(SeatType.VIP);
+ @Test void positionTamperingRejected() throws Exception {
+  var s=seats.createLayout(new SeatLayoutCreateForm(roomId,1,1)).getFirst();
+  mvc.perform(post("/admin/seats/"+s.id()).with(csrf()).param("roomId",roomId.toString()).param("rowLabel","B").param("seatNumber","1").param("seatType","VIP").param("active","true")).andExpect(status().isOk()).andExpect(model().attributeHasErrors("form"));assertThat(seats.findByRoom(roomId)).containsExactly(s);
  }
- @Test void shrinkingDeactivatesOmittedSeatsAndPreservesRemainingIds(){
-  var second=seats.create(new SeatForm(roomId,"A",2,SeatType.NORMAL,true));
-  seats.saveLayout(form(List.of(existing()),true));
+ @Test void coupleAndUnknownTypeRejected() throws Exception {
+  var s=seats.createLayout(new SeatLayoutCreateForm(roomId,1,1)).getFirst();
+  for(String type:List.of("COUPLE","UNKNOWN"))mvc.perform(update(s.id(),type,"true")).andExpect(status().isOk()).andExpect(model().attributeHasErrors("form"));
+  assertThat(seats.findByRoom(roomId)).containsExactly(s);
+ }
+ @Test void removedEndpointsCannotMutateData() throws Exception {
+  var original=seats.createLayout(new SeatLayoutCreateForm(roomId,1,2));
+  for(String path:List.of("/admin/seats","/admin/seats/batch","/admin/seats/batch/preview","/admin/seats/batch-update","/admin/seats/designer"))
+   mvc.perform(post(path).with(csrf()).param("roomId",roomId.toString())).andExpect(status().is4xxClientError());
+  for(String path:List.of("/admin/seats/new","/admin/seats/batch"))mvc.perform(get(path).param("roomId",roomId.toString())).andExpect(status().is4xxClientError());
+  assertThat(seats.findByRoom(roomId)).containsExactlyElementsOf(original);
+ }
+ @Test void adminAndCsrfEnforcedForInitializationAndSingleUpdate() throws Exception {
+  var s=seats.createLayout(new SeatLayoutCreateForm(roomId,1,1)).getFirst();
+  for(String path:List.of("/admin/seats/layout","/admin/seats/"+s.id())){
+   mvc.perform(post(path)).andExpect(status().isForbidden());
+   mvc.perform(post(path).with(user("customer").roles("CUSTOMER")).with(csrf())).andExpect(status().isForbidden());
+   mvc.perform(post(path).with(anonymous()).with(csrf())).andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/login"));
+  }
+  mvc.perform(get("/admin/seats").param("roomId",roomId.toString()).with(user("customer").roles("CUSTOMER"))).andExpect(status().isForbidden());
+  assertThat(seats.findByRoom(roomId)).containsExactly(s);
+ }
+ @Test void legacyIrregularLayoutLoadsWithoutRebuildingOrReactivation() throws Exception {
+  var old=new Seat();old.setRoom(roomRepository.findById(roomId).orElseThrow());old.setRowLabel("Z9");old.setSeatNumber(212);old.setSeatType(SeatType.COUPLE);old.setActive(false);old=repository.saveAndFlush(old);
+  mvc.perform(get("/admin/seats").param("roomId",roomId.toString())).andExpect(status().isOk()).andExpect(content().string(containsString("Z9212")))
+   .andExpect(content().string(containsString("Có ghế dùng loại cũ"))).andExpect(content().string(containsString("id=\"create-layout-form\"")));
+  var stored=repository.findById(old.getId()).orElseThrow();assertThat(stored.isActive()).isFalse();assertThat(stored.getSeatType()).isEqualTo(SeatType.COUPLE);assertThat(repository.count()).isEqualTo(1);
+ }
+ @Test void emptyLegacyMetadataTableIsNotPartOfJpaModel(){
+  assertThat(jdbc.queryForObject("select count(*) from information_schema.tables where table_name='SEAT_ROW_LAYOUTS'",Integer.class)).isZero();
+ }
+ @Test void shrinkWithoutConfirmationRendersErrorAndKeepsData() throws Exception {
+  var original=seats.createLayout(new SeatLayoutCreateForm(roomId,6,10));
+  mvc.perform(create()).andExpect(status().isOk()).andExpect(model().attributeHasErrors("createForm"))
+   .andExpect(content().string(containsString("Cần xác nhận")));
+  assertThat(seats.findByRoom(roomId)).containsExactlyElementsOf(original);
+ }
+ @Test void singleAndWholeDeletionRequireConfirmationAndCsrf() throws Exception {
+  var original=seats.createLayout(new SeatLayoutCreateForm(roomId,1,2));var first=original.getFirst();
+  mvc.perform(post("/admin/seats/"+first.id()+"/delete").with(csrf()).param("roomId",roomId.toString())).andExpect(status().is3xxRedirection()).andExpect(flash().attributeExists("failure"));
   assertThat(repository.count()).isEqualTo(2);
-  assertThat(seats.getById(id).active()).isTrue();
-  assertThat(seats.getById(second.getId()).active()).isFalse();
+  mvc.perform(post("/admin/seats/"+first.id()+"/delete").with(csrf()).param("roomId",roomId.toString()).param("confirmed","true")).andExpect(status().is3xxRedirection());
+  assertThat(repository.existsById(first.id())).isFalse();assertThat(repository.count()).isEqualTo(1);
+  mvc.perform(post("/admin/seats/layout/delete").with(csrf()).param("roomId",roomId.toString()).param("confirmed","true")).andExpect(status().is3xxRedirection());
+  assertThat(repository.count()).isZero();
  }
- @Test void deletingWholeSavedRowOnlyDeactivates(){
-  seats.saveLayout(form(List.of(),true));
-  assertThat(repository.count()).isEqualTo(1);
-  assertThat(seats.getById(id).active()).isFalse();
- }
- @Test void emptyUnsavedLayoutCanBeSavedWithoutRowMinimum(){
-  var other=rooms.create(new RoomForm(theaterId,"Empty",RoomType.TWO_D,true));
-  var state=seats.loadLayout(other.getId());
-  seats.saveLayout(new SeatLayoutForm(other.getId(),state.snapshot(),List.of(),false));
-  assertThat(seats.findByRoom(other.getId())).isEmpty();
- }
- @Test void requiresConfirmationBeforeChangingOldCustomizations(){
-  assertThatThrownBy(()->seats.saveLayout(form(List.of(seat(id,"A",1,SeatType.NORMAL,true)),false)))
-   .isInstanceOf(ScheduleValidationException.class).hasMessageContaining("xác nhận");
-  assertThat(seats.getById(id).seatType()).isEqualTo(SeatType.VIP);
- }
- @Test void requiresConfirmationBeforeOmittingOldSeat(){
-  assertThatThrownBy(()->seats.saveLayout(form(List.of(),false))).isInstanceOf(ScheduleValidationException.class);
-  assertThat(seats.getById(id).active()).isTrue();
- }
- @Test void staleDraftCannotOverwriteSingleSeatEdit(){
-  var draft=form(List.of(existing(),seat(null,"B",1,SeatType.NORMAL,true)),true);
-  seats.update(id,new SeatForm(roomId,"A",1,SeatType.COUPLE,true));
-  assertThatThrownBy(()->seats.saveLayout(draft)).isInstanceOf(ScheduleValidationException.class).hasMessageContaining("nơi khác");
-  assertThat(repository.count()).isEqualTo(1);assertThat(seats.getById(id).seatType()).isEqualTo(SeatType.COUPLE);
- }
- @Test void duplicatePositionsRejectAllChanges(){
-  var draft=form(List.of(existing(),seat(null,"B",1,SeatType.NORMAL,true),seat(null," b ",1,SeatType.VIP,true)),true);
-  assertThatThrownBy(()->seats.saveLayout(draft)).isInstanceOf(ScheduleValidationException.class);
-  assertThat(repository.count()).isEqualTo(1);
- }
- @Test void foreignIdsAndMovingIdsAreRejected(){
-  var other=rooms.create(new RoomForm(theaterId,"Other",RoomType.TWO_D,true));
-  var foreign=seats.create(new SeatForm(other.getId(),"A",1,SeatType.NORMAL,true));
-  assertThatThrownBy(()->seats.saveLayout(form(List.of(seat(foreign.getId(),"A",1,SeatType.NORMAL,true)),true))).isInstanceOf(ScheduleValidationException.class);
-  assertThatThrownBy(()->seats.saveLayout(form(List.of(seat(id,"A",2,SeatType.NORMAL,true)),true))).isInstanceOf(ScheduleValidationException.class);
-  assertThat(seats.getById(id).seatNumber()).isEqualTo(1);
- }
- @Test void failedInsertRollsBackOldSeatChangesToo(){
-  doAnswer(call->{
-   List<Seat> additions=call.getArgument(0);repository.saveAndFlush(additions.getFirst());
-   throw new DataIntegrityViolationException("Simulated persistence failure");
-  }).when(repository).saveAllAndFlush(anyList());
-  assertThatThrownBy(()->seats.saveLayout(form(List.of(seat(id,"A",1,SeatType.NORMAL,false),seat(null,"B",1,SeatType.NORMAL,true)),true)))
-   .isInstanceOf(DataIntegrityViolationException.class);
-  assertThat(repository.count()).isEqualTo(1);
-  assertThat(seats.getById(id).seatType()).isEqualTo(SeatType.VIP);
-  assertThat(seats.getById(id).active()).isTrue();
- }
- @Test void aislesDoNotCreateFakeSeats(){
-  seats.saveLayout(form(List.of(existing(),seat(null,"B",1,SeatType.NORMAL,true),seat(null,"B",3,SeatType.NORMAL,true)),false));
-  assertThat(seats.findByRoom(roomId)).filteredOn(s->s.rowLabel().equals("B")).extracting(SeatSummary::seatNumber).containsExactly(1,3);
- }
- String body(String token,String positions,boolean confirm){
-  return "{\"roomId\":"+roomId+",\"snapshot\":\""+token+"\",\"seats\":"+positions+",\"confirmExistingChanges\":"+confirm+"}";
- }
- String existingJson(){return "{\"id\":"+id+",\"rowLabel\":\"A\",\"seatNumber\":1,\"seatType\":\"VIP\",\"active\":true}";}
- @Test void designerRendersCurrentLayoutAndInteractivePanelsWithoutOpenInView() throws Exception {
-  mvc.perform(get("/admin/seats").param("roomId",roomId.toString())).andExpect(status().isOk())
-   .andExpect(model().attributeExists("layoutSnapshot","seats","rows"))
-   .andExpect(content().string(containsString("Chỉnh sửa sơ đồ hiện có")))
-   .andExpect(content().string(containsString("data-seat-id=\""+id+"\"")))
-   .andExpect(content().string(containsString("row-panel")))
-   .andExpect(content().string(containsString("seat-designer-model.js")))
-   .andExpect(content().string(containsString("_csrf")));
- }
- @Test void jsonSaveWorksAndStaleRetryReturnsConflict() throws Exception {
-  String token=seats.loadLayout(roomId).snapshot();
-  String data=body(token,"["+existingJson()+",{\"rowLabel\":\"B\",\"seatNumber\":1,\"seatType\":\"NORMAL\",\"active\":true}]",false);
-  mvc.perform(post("/admin/seats/designer").with(csrf()).contentType("application/json").content(data))
-   .andExpect(status().isOk()).andExpect(jsonPath("$.created").value(1));
-  mvc.perform(post("/admin/seats/designer").with(csrf()).contentType("application/json").content(data))
-   .andExpect(status().isConflict()).andExpect(jsonPath("$.field").value("snapshot"));
- }
- @Test void invalidJsonLayoutReturnsBadRequestAndLeavesData() throws Exception {
-  String token=seats.loadLayout(roomId).snapshot();
-  mvc.perform(post("/admin/seats/designer").with(csrf()).contentType("application/json")
-   .content(body(token,"[{\"rowLabel\":\"A\",\"seatNumber\":0,\"seatType\":\"NORMAL\",\"active\":true}]",true)))
-   .andExpect(status().isBadRequest());
-  assertThat(repository.count()).isEqualTo(1);
- }
- @Test void endpointStillRequiresAdminAndCsrf() throws Exception {
-  String data=body(seats.loadLayout(roomId).snapshot(),"["+existingJson()+"]",false);
-  mvc.perform(post("/admin/seats/designer").contentType("application/json").content(data)).andExpect(status().isForbidden());
-  mvc.perform(post("/admin/seats/designer").with(user("customer").roles("CUSTOMER")).with(csrf()).contentType("application/json").content(data)).andExpect(status().isForbidden());
-  mvc.perform(post("/admin/seats/designer").with(anonymous()).with(csrf()).contentType("application/json").content(data)).andExpect(status().is3xxRedirection());
- }
- @Test void directDesignerServiceCallsRequireAdmin(){
-  var draft=form(List.of(existing()),false);
-  org.springframework.security.core.context.SecurityContextHolder.clearContext();
-  assertThatThrownBy(()->seats.loadLayout(roomId)).isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
-  assertThatThrownBy(()->seats.saveLayout(draft)).isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
- }
- @Test void twoConcurrentDraftsCannotOverwriteEachOther() throws Exception {
-  var draft=form(List.of(existing(),seat(null,"B",1,SeatType.NORMAL,true)),false);
-  var pool=Executors.newFixedThreadPool(2);var ready=new CountDownLatch(2);var go=new CountDownLatch(1);
-  Callable<Boolean> task=()->{
-   org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
-    new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("admin","",List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"))));
-   try{
-    ready.countDown();if(!go.await(10,TimeUnit.SECONDS))throw new IllegalStateException("Timeout");
-    try{seats.saveLayout(draft);return true;}catch(ScheduleValidationException ex){return false;}
-   }finally{org.springframework.security.core.context.SecurityContextHolder.clearContext();}
-  };
-  try{
-   var a=pool.submit(task);var b=pool.submit(task);assertThat(ready.await(10,TimeUnit.SECONDS)).isTrue();go.countDown();
-   assertThat(List.of(a.get(20,TimeUnit.SECONDS),b.get(20,TimeUnit.SECONDS))).containsExactlyInAnyOrder(true,false);
-   assertThat(repository.count()).isEqualTo(2);
-  }finally{go.countDown();pool.shutdownNow();}
+ @Test void customerAndAnonymousCannotDeleteEvenWithConfirmation() throws Exception {
+  var original=seats.createLayout(new SeatLayoutCreateForm(roomId,1,2));
+  for(String path:List.of("/admin/seats/"+original.getFirst().id()+"/delete","/admin/seats/layout/delete")){
+   mvc.perform(post(path).param("roomId",roomId.toString()).param("confirmed","true")).andExpect(status().isForbidden());
+   mvc.perform(post(path).with(user("customer").roles("CUSTOMER")).with(csrf()).param("roomId",roomId.toString()).param("confirmed","true")).andExpect(status().isForbidden());
+   mvc.perform(post(path).with(anonymous()).with(csrf()).param("roomId",roomId.toString()).param("confirmed","true")).andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/login"));
+  }
+  assertThat(seats.findByRoom(roomId)).containsExactlyElementsOf(original);
  }
 }

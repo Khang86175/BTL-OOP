@@ -8,7 +8,7 @@ import java.util.Map;
 public class ScheduleWebAdvice {
  @ModelAttribute public void labels(Model m){
   m.addAttribute("roomLabels",Map.of("TWO_D","2D","THREE_D","3D","IMAX","IMAX"));
-  m.addAttribute("seatLabels",Map.of("NORMAL","Thường","VIP","VIP","COUPLE","Ghế đôi"));
+  m.addAttribute("seatLabels",Map.of("NORMAL","Thường","VIP","VIP"));
   m.addAttribute("statusLabels",Map.of("OPEN","Mở bán","CLOSED","Đã đóng","CANCELLED","Đã hủy"));
  }
  @ExceptionHandler(ScheduleValidationException.class)

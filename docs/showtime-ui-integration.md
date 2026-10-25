@@ -1,3 +1,5 @@
+> Giá Showtime hiện dùng hai trường normalPrice/vipPrice, không dùng giá cơ bản + phụ phí. Xem showtime-prices-review.md để nâng cấp QA trước khi chạy JAR mới.
+
 # Đợt B — Chạy và tích hợp giao diện Người 3
 
 ## Chạy demo an toàn
@@ -67,32 +69,7 @@ Test dùng SecurityConfig thật, kiểm tra anonymous xem lịch và vẫn khô
 Không cần sửa application.properties, pom.xml hoặc seed catalog. Navbar riêng của Người 3
 nằm trong fragments/schedule.html, xuất hiện trên các trang mới.
 
-## Đợt B.2 — Tạo ghế hàng loạt và sơ đồ
+## Quản lý ghế hiện tại
 
-Lưu ý B.3: trang /admin/seats đã thay bằng trình thiết kế trực tiếp trên sơ đồ.
-Hướng dẫn hiện tại: seat-designer.md. Các endpoint nhập khoảng B.2 phía dưới vẫn giữ để tương thích,
-nhưng không còn là trải nghiệm chính.
-
-1. Chạy lại JAR mới bằng profile demo theo hướng dẫn trên. Vào Phòng và ghế, chọn phòng,
-   rồi bấm Tạo ghế theo hàng.
-2. Nhập hàng D, từ 1 đến 12, loại Thường, hoạt động. Bấm Thêm hàng / khoảng để nhập
-   E1–12 VIP và F1–6 Ghế đôi (nếu chưa có các vị trí này).
-3. Bấm Xem trước sơ đồ. Màn hình ở trên; ghế mới mang nhãn Mới, ghế cũ vẫn có trong sơ đồ.
-   Xem trước không ghi dữ liệu. Sửa bất kỳ dòng nào sẽ ẩn bản xem trước cũ.
-4. Bấm Tạo toàn bộ ghế. Toàn bộ khoảng được kiểm tra lại trong một transaction,
-   khóa Room chung với thao tác tạo/sửa từng ghế. Một vị trí trùng làm cả lần tạo bị từ chối;
-   không bỏ qua, không cập nhật hoặc tạo lại ghế cũ.
-5. Muốn có lối đi ở vị trí 6 của hàng G, nhập G1–5 và G7–12. Số 6 để trống thực sự.
-   Nếu G6 đã tồn tại thì thao tác này KHÔNG xóa G6.
-6. Tại sơ đồ, tích các ghế, bấm tên hàng để chọn/bỏ chọn cả hàng, hoặc chọn tất cả.
-   Chọn loại mới và/hoặc trạng thái mới rồi Áp dụng. Lựa chọn Giữ nguyên không đổi thuộc tính đó.
-   Nhấn tên ghế vẫn mở trang sửa riêng.
-7. ID/phòng/vị trí ghế không đổi khi cập nhật nhiều ghế; ghế đôi chỉ là SeatType.COUPLE,
-   không tự nhân đôi số vé hoặc tính giá. Không có thao tác xóa.
-
-Giới hạn mỗi lần tạo: tối đa 30 khoảng, số ghế 1–200, tổng tối đa 1.000 ghế;
-mỗi lần cập nhật tối đa 1.000 ID duy nhất, cùng phòng. Không yêu cầu đổi schema hoặc API Booking.
-Xem trước không giữ chỗ; nếu người khác tạo ghế sau đó, thao tác lưu sẽ kiểm tra lại và báo trùng.
-JavaScript chỉ hỗ trợ thêm dòng, chọn ghế và đếm lựa chọn; server giữ toàn bộ validation/quyền/CSRF.
-
-TC07 về trùng rạp được báo cáo riêng tại TC07-theater-duplicates.md; chưa áp đặt quy tắc mới.
+Xem seat-designer.md. Đổi số hàng/số ghế để xem sơ đồ ngay và nhấn Tạo/Cập nhật để lưu trực tiếp. Cho phép tăng/giảm kích thước, xóa riêng/toàn bộ nếu không có tham chiếu, giữ NORMAL/VIP và active/inactive của vị trí còn lại. Không còn endpoint B.2/batch, lối đi, số bắt đầu, chọn nhiều ghế hoặc di chuyển ID sang vị trí khác. Không có chức năng bản nháp riêng.
+Các API Booking giữ nguyên. TC07 về trùng rạp vẫn được báo cáo riêng tại TC07-theater-duplicates.md; chưa áp đặt quy tắc mới.

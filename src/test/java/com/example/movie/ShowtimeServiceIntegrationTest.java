@@ -47,7 +47,7 @@ class ShowtimeServiceIntegrationTest {
   m.setReleaseDate(start.toLocalDate().minusDays(1));m.setAgeRating(AgeRating.P);m.setSynopsis("Test");m.setVisible(true);
   movieId=movies.saveAndFlush(m).getId();
  }
- ShowtimeForm form(Long room,LocalDateTime time,ShowtimeStatus status){return new ShowtimeForm(movieId,room,time,new BigDecimal("90000"),status);}
+ ShowtimeForm form(Long room,LocalDateTime time,ShowtimeStatus status){return new ShowtimeForm(movieId,room,time,new BigDecimal("90000"),new BigDecimal("110000"),status);}
  ShowtimeSummary create(LocalDateTime time){return schedules.create(form(roomId,time,ShowtimeStatus.OPEN));}
  @Test void calculatesEndTime(){assertThat(create(start).endTime()).isEqualTo(start.plusHours(2));}
  @Test void rejectsPast(){assertThatThrownBy(()->create(LocalDateTime.now(Movie.CINEMA_ZONE).minusHours(1))).isInstanceOf(ScheduleValidationException.class);}
@@ -67,7 +67,7 @@ class ShowtimeServiceIntegrationTest {
   assertThatThrownBy(()->create(start.minusDays(2))).isInstanceOf(ScheduleValidationException.class);
  }
  @Test void rejectsNegativePrice(){
-  assertThatThrownBy(()->schedules.create(new ShowtimeForm(movieId,roomId,start,new BigDecimal("-1"),ShowtimeStatus.OPEN))).isInstanceOf(ConstraintViolationException.class);
+  assertThatThrownBy(()->schedules.create(new ShowtimeForm(movieId,roomId,start,new BigDecimal("-1"),new BigDecimal("110000"),ShowtimeStatus.OPEN))).isInstanceOf(ConstraintViolationException.class);
  }
  @Test void rejectsAllOverlapShapes(){
   create(start);
@@ -116,7 +116,7 @@ class ShowtimeServiceIntegrationTest {
   assertThatThrownBy(()->schedules.update(s.id(),form(roomId,start,ShowtimeStatus.OPEN))).isInstanceOf(ScheduleValidationException.class);
  }
  @Test void bookingContractFiltersAndReturnsOnlyPhysicalActiveSeats(){
-  var s=create(start);seats.create(new SeatForm(roomId,"A",1,SeatType.NORMAL,true));seats.create(new SeatForm(roomId,"A",2,SeatType.VIP,false));
+  var s=create(start);var layout=seats.createLayout(new SeatLayoutCreateForm(roomId,1,2));seats.update(layout.get(1).id(),new SeatForm(roomId,"A",2,SeatType.VIP,false));
   assertThat(schedules.findOpenShowtimes(movieId,theaterId,start.toLocalDate())).extracting(ShowtimeSummary::id).containsExactly(s.id());
   assertThat(schedules.findOpenShowtimes(movieId,theaterId,start.toLocalDate().plusDays(1))).isEmpty();
   assertThat(schedules.getBookableShowtime(s.id()).roomId()).isEqualTo(roomId);
@@ -125,6 +125,16 @@ class ShowtimeServiceIntegrationTest {
  @Test void closedScheduleNotBookable(){
   var s=schedules.create(form(roomId,start,ShowtimeStatus.CLOSED));
   assertThatThrownBy(()->schedules.getBookableShowtime(s.id())).isInstanceOf(ScheduleValidationException.class);
+ }
+ @Test void bookingContractExcludesLegacyTypesWithoutChangingPricesOrIds(){
+  var show=create(start);
+  var initial=seats.createLayout(new SeatLayoutCreateForm(roomId,1,3));var normal=initial.get(0);
+  var vip=initial.get(1);seats.update(vip.id(),new SeatForm(roomId,"A",2,SeatType.VIP,true));
+  var legacy=initial.get(2);
+  new TransactionTemplate(transactionManager).executeWithoutResult(tx->seatRepository.findById(legacy.id()).orElseThrow().setSeatType(SeatType.COUPLE));
+  assertThat(schedules.findActiveSeats(show.id())).extracting(SeatSummary::id).containsExactly(normal.id(),vip.id());
+  assertThat(schedules.getBookableShowtime(show.id()).basePrice()).isEqualByComparingTo("90000");
+  assertThat(seats.findByRoom(roomId)).hasSize(3);
  }
  @Test void repositoryOccupancyMatchesEveryEnumImplementation(){
   int offset=0;

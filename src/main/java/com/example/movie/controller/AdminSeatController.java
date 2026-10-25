@@ -1,6 +1,6 @@
 package com.example.movie.controller;
+
 import com.example.movie.dto.*;
-import com.example.movie.model.*;
 import com.example.movie.service.*;
 import jakarta.validation.Valid;
 import org.springframework.stereotype.Controller;
@@ -8,68 +8,89 @@ import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-import java.util.stream.Collectors;
 import java.util.LinkedHashMap;
+import java.util.stream.Collectors;
+
 @Controller @RequestMapping("/admin/seats")
 public class AdminSeatController {
- private final SeatService seats;private final RoomService rooms;
+ private final SeatService seats;
+ private final RoomService rooms;
  public AdminSeatController(SeatService seats,RoomService rooms){this.seats=seats;this.rooms=rooms;}
- @GetMapping public String list(@RequestParam Long roomId,Model m){
-  m.addAttribute("room",rooms.getSummary(roomId));var layout=seats.loadLayout(roomId);var all=layout.seats();m.addAttribute("seats",all);
-  m.addAttribute("layoutSnapshot",layout.snapshot());
-  m.addAttribute("rows",all.stream().collect(Collectors.groupingBy(SeatSummary::rowLabel,LinkedHashMap::new,Collectors.toList())));
-  m.addAttribute("capacity",rooms.capacity(roomId));return "admin/seats/list";
+
+ @GetMapping public String list(@RequestParam Long roomId,Model model){
+  return prepareList(roomId,model);
  }
- @PostMapping(value="/designer",consumes="application/json")
- @ResponseBody
- public org.springframework.http.ResponseEntity<?> saveDesigner(@Valid @RequestBody SeatLayoutForm form){
-  try{return org.springframework.http.ResponseEntity.ok(seats.saveLayout(form));}
-  catch(ScheduleValidationException ex){
-   return org.springframework.http.ResponseEntity.status(409).body(java.util.Map.of("message",ex.getMessage(),"field",ex.getField()));
-  }catch(org.springframework.dao.DataIntegrityViolationException ex){
-   return org.springframework.http.ResponseEntity.status(409).body(java.util.Map.of("message","Vị trí ghế bị trùng hoặc đang có thay đổi đồng thời. Chưa lưu sơ đồ."));
+ @PostMapping("/layout")
+ public String createLayout(@Valid @ModelAttribute("createForm") SeatLayoutCreateForm form,BindingResult errors,Model model,RedirectAttributes redirect){
+  if(!ScheduleControllerSupport.save(errors,()->seats.saveLayout(form))){
+   model.addAttribute("failure",errors.getAllErrors().stream().map(error->
+    error instanceof org.springframework.validation.FieldError field&&field.isBindingFailure()
+     ?"Số hàng và số ghế phải là số nguyên hợp lệ.":error.getDefaultMessage()).collect(Collectors.joining(" ")));
+   Long roomId=form==null?null:form.roomId();
+   if(roomId==null){
+    var raw=errors.getFieldValue("roomId");
+    if(raw instanceof Long value)roomId=value;
+    else if(raw!=null)try{roomId=Long.valueOf(raw.toString());}catch(NumberFormatException ignored){}
+   }
+   return prepareList(roomId,model);
   }
+  redirect.addFlashAttribute("success","Đã lưu sơ đồ. Ghế giữ nguyên vị trí được giữ ID, loại và trạng thái.");
+  return "redirect:/admin/seats?roomId="+form.roomId();
  }
- @GetMapping("/new") public String form(@RequestParam Long roomId,Model m){rooms.getSummary(roomId);m.addAttribute("form",new SeatForm(roomId,"A",1,SeatType.NORMAL,true));return prepare(null,m);}
- @GetMapping("/{id}/edit") public String edit(@PathVariable Long id,Model m){var s=seats.getById(id);m.addAttribute("form",new SeatForm(s.roomId(),s.rowLabel(),s.seatNumber(),s.seatType(),s.active()));return prepare(id,m);}
- @PostMapping public String create(@Valid @ModelAttribute("form") SeatForm f,BindingResult e,Model m,RedirectAttributes r){return save(null,f,e,m,r);}
- @PostMapping("/{id}") public String update(@PathVariable Long id,@Valid @ModelAttribute("form") SeatForm f,BindingResult e,Model m,RedirectAttributes r){return save(id,f,e,m,r);}
- @GetMapping("/batch") public String batchForm(@RequestParam Long roomId,Model m){
-  var form=new SeatBatchForm();form.setRoomId(roomId);
-  form.getRows().add(new SeatRowForm("A",1,12,SeatType.NORMAL,true));
-  m.addAttribute("form",form);return prepareBatch(roomId,m);
+ @GetMapping("/{id}/edit") public String edit(@PathVariable Long id,Model model){
+  var seat=seats.getById(id);
+  model.addAttribute("form",new SeatForm(seat.roomId(),seat.rowLabel(),seat.seatNumber(),seat.seatType(),seat.active()));
+  return prepareEdit(id,seat.roomId(),model);
  }
- @PostMapping("/batch/preview") public String preview(@Valid @ModelAttribute("form") SeatBatchForm f,BindingResult e,Model m){
-  ScheduleControllerSupport.save(e,()->{
-   var preview=seats.previewBatch(f);
-   m.addAttribute("previewRows",preview.stream().collect(Collectors.groupingBy(SeatSummary::rowLabel,LinkedHashMap::new,Collectors.toList())));
-   m.addAttribute("previewCount",preview.stream().filter(s->s.id()==null).count());
-  });
-  return prepareBatch(f.getRoomId(),m);
- }
- @PostMapping("/batch") public String batchCreate(@Valid @ModelAttribute("form") SeatBatchForm f,BindingResult e,Model m,RedirectAttributes r){
-  if(!ScheduleControllerSupport.save(e,()->{
-   int count=seats.createBatch(f).size();r.addFlashAttribute("success","Đã tạo "+count+" ghế. Ghế cũ được giữ nguyên.");
-  }))return prepareBatch(f.getRoomId(),m);
-  return "redirect:/admin/seats?roomId="+f.getRoomId();
- }
- @PostMapping("/batch-update") public String batchUpdate(@Valid @ModelAttribute("bulkForm") SeatBulkUpdateForm f,BindingResult e,Model m,RedirectAttributes r){
-  if(!ScheduleControllerSupport.save(e,()->{
-   int count=seats.updateBatch(f);r.addFlashAttribute("success","Đã cập nhật "+count+" ghế, giữ nguyên ID và vị trí.");
-  })){
-   r.addFlashAttribute("failure",e.getAllErrors().stream().map(x->
-    x.getCodes()!=null&&java.util.Arrays.stream(x.getCodes()).anyMatch(c->c.startsWith("typeMismatch"))
-     ?"Lựa chọn loại ghế, trạng thái hoặc ID không hợp lệ.":x.getDefaultMessage()).collect(Collectors.joining(" ")));
+ @PostMapping("/{id}")
+ public String update(@PathVariable Long id,@Valid @ModelAttribute("form") SeatForm form,BindingResult errors,Model model,RedirectAttributes redirect){
+  if(!ScheduleControllerSupport.save(errors,()->seats.update(id,form))){
+   var seat=seats.getById(id);
+   if(form==null){
+    var fallback=new SeatForm(seat.roomId(),seat.rowLabel(),seat.seatNumber(),seat.seatType(),seat.active());
+    var safeErrors=new org.springframework.validation.BeanPropertyBindingResult(fallback,"form");
+    safeErrors.reject("seat.invalid","Giá trị không đúng định dạng. Hãy kiểm tra loại ghế và trạng thái.");
+    model.addAttribute("form",fallback);model.addAttribute(BindingResult.MODEL_KEY_PREFIX+"form",safeErrors);
+   }
+   return prepareEdit(id,seat.roomId(),model);
   }
-  return f.roomId()==null?"redirect:/admin/rooms":"redirect:/admin/seats?roomId="+f.roomId();
+  redirect.addFlashAttribute("success","Đã cập nhật ghế, giữ nguyên ID và vị trí.");
+  return "redirect:/admin/seats?roomId="+form.roomId();
  }
- private String prepareBatch(Long roomId,Model m){
-  if(roomId==null)throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"Vui lòng chọn phòng.");
-  m.addAttribute("room",rooms.getSummary(roomId));return "admin/seats/batch";
+ @PostMapping("/{id}/delete")
+ public String deleteSeat(@PathVariable Long id,@RequestParam Long roomId,@RequestParam(defaultValue="false") boolean confirmed,RedirectAttributes redirect){
+  return remove(roomId,redirect,()->seats.deleteSeat(roomId,id,confirmed));
  }
- private String save(Long id,SeatForm f,BindingResult e,Model m,RedirectAttributes r){
-  if(!ScheduleControllerSupport.save(e,()->{if(id==null)seats.create(f);else seats.update(id,f);}))return prepare(id,m);
-  r.addFlashAttribute("success","Đã lưu ghế, giữ nguyên ID khi chỉnh sửa.");return "redirect:/admin/seats?roomId="+f.roomId();
+ @PostMapping("/layout/delete")
+ public String deleteLayout(@RequestParam Long roomId,@RequestParam(defaultValue="false") boolean confirmed,RedirectAttributes redirect){
+  return remove(roomId,redirect,()->seats.deleteLayout(roomId,confirmed));
  }
- private String prepare(Long id,Model m){m.addAttribute("id",id);m.addAttribute("rooms",rooms.findForAdmin(null));return "admin/seats/form";}
+ private String remove(Long roomId,RedirectAttributes redirect,Runnable action){
+  try{action.run();redirect.addFlashAttribute("success","Đã xóa ghế chưa được tham chiếu.");}
+  catch(ScheduleValidationException ex){redirect.addFlashAttribute("failure",ex.getMessage());}
+  catch(org.springframework.dao.DataIntegrityViolationException ex){redirect.addFlashAttribute("failure","Ghế đang được tham chiếu hoặc có thay đổi đồng thời. Chưa xóa dữ liệu.");}
+  return "redirect:/admin/seats?roomId="+roomId;
+ }
+ private String prepareList(Long roomId,Model model){
+  if(roomId==null)throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"Thiếu phòng.");
+  model.addAttribute("room",rooms.getSummary(roomId));
+  var all=seats.findByRoom(roomId);model.addAttribute("seats",all);
+  if(!model.containsAttribute("createForm")){
+   int rowCount=all.stream().mapToInt(s->rowOrdinal(s.rowLabel())).max().orElse(5);
+   int count=all.stream().mapToInt(SeatSummary::seatNumber).max().orElse(8);
+   model.addAttribute("createForm",new SeatLayoutCreateForm(roomId,Math.min(30,Math.max(1,rowCount)),Math.min(200,Math.max(1,count))));
+  }
+  model.addAttribute("rows",all.stream().collect(Collectors.groupingBy(SeatSummary::rowLabel,LinkedHashMap::new,Collectors.toList())));
+  model.addAttribute("hasLegacySeatTypes",all.stream().anyMatch(s->!s.seatType().isSupported()));
+  return "admin/seats/list";
+ }
+ private String prepareEdit(Long id,Long roomId,Model model){
+  model.addAttribute("id",id);model.addAttribute("room",rooms.getSummary(roomId));
+  model.addAttribute("seat",seats.getById(id));
+  return "admin/seats/form";
+ }
+ private static int rowOrdinal(String row){
+  String label=row.strip().toUpperCase(java.util.Locale.ROOT);if(!label.matches("[A-Z]{1,3}"))return 1;
+  int value=0;for(char c:label.toCharArray())value=value*26+c-'A'+1;return value;
+ }
 }

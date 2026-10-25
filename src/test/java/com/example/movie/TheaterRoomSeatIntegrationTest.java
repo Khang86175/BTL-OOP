@@ -35,19 +35,19 @@ class TheaterRoomSeatIntegrationTest {
  }
  @Test void seatUpdateKeepsIdAndCapacityUsesActiveSeats(){
   var r=room(theater().getId(),"A");
-  var s=seats.create(new SeatForm(r.getId()," a ",1,SeatType.NORMAL,true));
-  var changed=seats.update(s.getId(),new SeatForm(r.getId(),"B",2,SeatType.VIP,false));
-  assertThat(changed.getId()).isEqualTo(s.getId());assertThat(rooms.capacity(r.getId())).isZero();
+  var s=seats.createLayout(new SeatLayoutCreateForm(r.getId(),1,1)).getFirst();
+  var changed=seats.update(s.id(),new SeatForm(r.getId(),"A",1,SeatType.VIP,false));
+  assertThat(changed.getId()).isEqualTo(s.id());assertThat(changed.getRowLabel()).isEqualTo("A");assertThat(changed.getSeatNumber()).isEqualTo(1);assertThat(rooms.capacity(r.getId())).isZero();
   assertThat(seats.findByRoom(r.getId())).hasSize(1);
  }
  @Test void duplicateSeatRejected(){
-  var r=room(theater().getId(),"A");seats.create(new SeatForm(r.getId(),"A",1,SeatType.NORMAL,true));
-  assertThatThrownBy(()->seats.create(new SeatForm(r.getId(),"a",1,SeatType.VIP,true))).isInstanceOf(ScheduleValidationException.class);
+  var r=room(theater().getId(),"A");seats.createLayout(new SeatLayoutCreateForm(r.getId(),1,1));
+  assertThatThrownBy(()->seats.createLayout(new SeatLayoutCreateForm(r.getId(),1,1))).isInstanceOf(ScheduleValidationException.class);
  }
  @Test void cannotMoveSeatToAnotherRoom(){
   var t=theater();var a=room(t.getId(),"A");var b=room(t.getId(),"B");
-  var s=seats.create(new SeatForm(a.getId(),"A",1,SeatType.NORMAL,true));
-  assertThatThrownBy(()->seats.update(s.getId(),new SeatForm(b.getId(),"A",1,SeatType.NORMAL,true))).isInstanceOf(ScheduleValidationException.class);
+  var s=seats.createLayout(new SeatLayoutCreateForm(a.getId(),1,1)).getFirst();
+  assertThatThrownBy(()->seats.update(s.id(),new SeatForm(b.getId(),"A",1,SeatType.NORMAL,true))).isInstanceOf(ScheduleValidationException.class);
  }
  @Test void serviceValidatesForms(){
   assertThatThrownBy(()->theaters.create(new TheaterForm(" ","",true))).isInstanceOf(ConstraintViolationException.class);

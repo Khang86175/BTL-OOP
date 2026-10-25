@@ -1,34 +1,28 @@
-/* Run against the pure production model in a JavaScript runtime. No DOM mocks. */
-(function(root) {
+/* Run the individual-seat model in an actual JavaScript runtime. */
+(function(root){
  "use strict";
- const M=root.CineSeatDesigner,results=[];
- function test(name,fn){fn();results.push(name);}
- function check(ok,message){if(!ok)throw new Error(message||"Assertion failed");}
- const old=[
-  {id:11,rowLabel:"A",seatNumber:1,seatType:"VIP",active:true},
-  {id:12,rowLabel:"A",seatNumber:2,seatType:"NORMAL",active:false},
-  {id:13,rowLabel:"A",seatNumber:3,seatType:"COUPLE",active:true}
- ];
- test("A–E generation",()=>{const r=M.generate([],"A",5,12);check(r.map(x=>x.label).join(",")==="A,B,C,D,E");check(M.flatten(r).length===60);});
- test("Five ten-seat rows initialize only NORMAL",()=>{const r=M.generate([],"A",5,10);check(r.every(row=>row.seats.length===10));check(M.flatten(r).length===50);check(M.flatten(r).every(s=>s.seatType==="NORMAL"));});
- test("Appending rows preserves existing VIP and COUPLE while new seats are NORMAL",()=>{const r=M.generate(M.fromSeats(old),"A",5,10);check(r[0].seats[0].seatType==="VIP");check(r[0].seats[2].seatType==="COUPLE");check(r.slice(1).every(row=>row.seats.every(s=>s.seatType==="NORMAL")));});
- test("Admin can explicitly assign VIP or COUPLE after generation",()=>{let r=M.generate([],"A",5,10);r=M.applyRow(r,"C",{count:10,first:1,gaps:"",type:"VIP",active:null,override:false});r=M.applyRow(r,"E",{count:10,first:1,gaps:"",type:"COUPLE",active:null,override:false});check(r[2].seats.every(s=>s.seatType==="VIP"));check(r[4].seats.every(s=>s.seatType==="COUPLE"));check(r[1].seats.every(s=>s.seatType==="NORMAL"));});
- test("Z continues AA",()=>check(M.labels("Z",3).join(",")==="Z,AA,AB"));
- test("Generating over existing A resizes it and keeps custom IDs/types",()=>{const r=M.generate(M.fromSeats(old),"A",2,12);check(r[0].seats[0].id===11&&r[0].seats[0].seatType==="VIP");check(r[0].seats.length===12);check(r[0].seats[1].active===false);});
- test("Existing demo A/B/C all resize to ten while D/E are added",()=>{const demo=["A","B","C"].flatMap((row,i)=>Array.from({length:8},(_,n)=>({id:100+i*8+n,rowLabel:row,seatNumber:n+1,seatType:i===1?"VIP":i===2?"COUPLE":"NORMAL",active:true})));const r=M.generate(M.fromSeats(demo),"A",5,10);check(r.length===5&&r.every(row=>row.seats.length===10));check(M.flatten(r).filter(s=>s.id).length===24);check(r[1].seats[0].seatType==="VIP"&&r[2].seats[0].seatType==="COUPLE");check(M.flatten(r).filter(s=>!s.id).every(s=>s.seatType==="NORMAL"));});
- test("Generation reduces old rows safely instead of ignoring them",()=>{const oldRow=Array.from({length:12},(_,n)=>({id:n+1,rowLabel:"A",seatNumber:n+1,seatType:"NORMAL",active:true}));const r=M.generate(M.fromSeats(oldRow),"A",1,10);check(r[0].seats.length===12);check(r[0].seats.filter(s=>s.active).length===10);check(r[0].seats[11].id===12&&!r[0].seats[11].active);});
- test("Resize existing A preserves identity and mixed types",()=>{const r=M.applyRow(M.fromSeats(old),"A",{count:5,first:1,gaps:"",type:"NORMAL",active:true,override:false});check(r[0].seats[0].id===11&&r[0].seats[0].seatType==="VIP");check(r[0].seats[1].active===false);check(r[0].seats.length===5);});
- test("Explicit override replaces existing custom types",()=>{const r=M.applyRow(M.fromSeats(old),"A",{count:3,first:1,gaps:"",type:"VIP",active:true,override:true});check(r[0].seats.every(s=>s.seatType==="VIP"&&s.active));});
- test("Reducing old row keeps tail IDs gray",()=>{const r=M.applyRow(M.fromSeats(old),"A",{count:1,first:1,gaps:"",type:"",active:null,override:false});check(r[0].seats.length===3);check(r[0].seats[2].id===13&&!r[0].seats[2].active);});
- test("Delete sole unsaved row leaves an empty draft",()=>check(M.removeRow(M.generate([],"A",1,12),"A").length===0));
- test("Delete persisted row deactivates safely",()=>{const r=M.removeRow(M.fromSeats(old),"A");check(r[0].seats.length===3&&r[0].seats.every(s=>s.id&&!s.active));});
- test("Deleting mixed row removes only new records",()=>{let r=M.applyRow(M.fromSeats(old),"A",{count:5,first:1,gaps:"",type:"",active:null,override:false});r=M.removeRow(r,"A");check(r[0].seats.length===3);});
- test("Aisle creates no fake seats",()=>{let r=M.generate([],"A",1,5);r=M.applyRow(r,"A",{count:5,first:1,gaps:"3",type:"NORMAL",active:true,override:false});check(r[0].seats.map(s=>s.seatNumber).join(",")==="1,2,4,5,6");});
- test("Individual changes survive later resize",()=>{let r=M.generate([],"A",1,5);r=M.updateSelected(r,new Set(["A:2"]),"VIP",false);r=M.applyRow(r,"A",{count:7,first:1,gaps:"",type:"",active:null,override:false});check(r[0].seats[1].seatType==="VIP"&&!r[0].seats[1].active);});
- test("Different row lengths share the same center axis",()=>{let rows=M.generate([],"A",3,12);rows=M.applyRow(rows,"C",{count:5,first:1,gaps:"",type:"",active:null,override:false});for(const r of rows){const o=M.geometry(r).offsets;check(Math.abs(o[0].offset+o[o.length-1].offset)<.001);}});
- test("Centering independent of starting seat number",()=>{let rows=M.generate([],"A",1,1);rows=M.applyRow(rows,"A",{count:8,first:10,gaps:"",type:"",active:null,override:false});const o=M.geometry(rows[0]).offsets;check(o[0].offset===-224&&o[7].offset===224);});
- test("Interior aisle preserves physical gap and center",()=>{const row={label:"A",seats:[1,2,4,5].map(n=>({rowLabel:"A",seatNumber:n}))};const o=M.geometry(row).offsets;check(o.map(x=>x.offset).join(",")==="-128,-64,64,128");});
- test("Serialization excludes draft-only flags",()=>{const r=M.removeRow(M.fromSeats(old),"A");check(M.flatten(r).every(s=>!Object.hasOwn(s,"retired")));});
- test("Invalid ranges fail without changing source",()=>{const r=M.fromSeats(old);let failed=false;try{M.applyRow(r,"A",{count:4,first:199,gaps:"",type:"",active:null,override:false});}catch(e){failed=true;}check(failed&&r[0].seats[0].active);});
+ const M=root.CineSeatEditor,results=[];
+ function check(condition){if(!condition)throw new Error("Assertion failed");}
+ function test(name,action){action();results.push(name);}
+ const seats=[{id:'9007199254740993',rowLabel:'A',seatNumber:1,seatType:'NORMAL',active:true},{id:'2',rowLabel:'A',seatNumber:2,seatType:'VIP',active:false}];
+ test('Select exact Long ID without numeric rounding',()=>check(M.selectSeat(seats,'9007199254740993').id==='9007199254740993'));
+ test('Selection preserves identity and physical position',()=>{const s=M.selectSeat(seats,'2');check(s.rowLabel==='A'&&s.seatNumber===2&&s.id==='2');});
+ test('Selection never reactivates an inactive seat',()=>check(M.selectSeat(seats,'2').active===false));
+ test('Selecting returns a copy without changing saved data',()=>{const s=M.selectSeat(seats,'2');s.active=true;check(seats[1].active===false);});
+ test('NORMAL changes to VIP with the same ID',()=>{const s=M.changeSeat(seats[0],'VIP',true);check(s.id===seats[0].id&&s.seatType==='VIP'&&s.rowLabel==='A'&&s.seatNumber===1);});
+ test('VIP changes back to NORMAL',()=>check(M.changeSeat(seats[1],'NORMAL',false).seatType==='NORMAL'));
+ test('Deactivate and explicitly reactivate',()=>{const off=M.changeSeat(seats[0],'NORMAL',false);check(!off.active);check(M.changeSeat(off,'NORMAL',true).active);});
+ test('Editing one seat leaves another unchanged',()=>{const original=JSON.stringify(seats);M.changeSeat(seats[0],'VIP',false);check(JSON.stringify(seats)===original);});
+ test('Reject COUPLE, unknown and missing types',()=>{for(const type of ['COUPLE','UNKNOWN','',null]){let failed=false;try{M.changeSeat(seats[0],type,true);}catch(e){failed=true;}check(failed);}});
+ test('Reject non boolean active state',()=>{let failed=false;try{M.changeSeat(seats[0],'NORMAL','false');}catch(e){failed=true;}check(failed);});
+ test('Unknown seat cannot edit another ID',()=>{let failed=false;try{M.selectSeat(seats,'3');}catch(e){failed=true;}check(failed);});
+ test('Legacy data read does not silently migrate',()=>{const old={id:'3',rowLabel:'Z9',seatNumber:212,seatType:'COUPLE',active:false};const copy=M.selectSeat([old],'3');check(copy.seatType==='COUPLE'&&!copy.active&&copy.seatNumber===212);});
+ test('Explicit legacy conversion keeps ID and inactive state',()=>{const old={id:'3',rowLabel:'A',seatNumber:12,seatType:'COUPLE',active:false};const s=M.changeSeat(old,'NORMAL',false);check(s.id==='3'&&!s.active&&s.seatNumber===12&&old.seatType==='COUPLE');});
  root.CineSeatDesignerTestResults=results;
+ test('Create five by eight preview with all NORMAL seats',()=>{const p=M.previewLayout([],5,8);check(p.length===40&&p[0].rowLabel==='A'&&p.at(-1).rowLabel==='E'&&p.at(-1).seatNumber===8&&p.every(s=>s.id===null&&s.seatType==='NORMAL'&&s.active));});
+ test('Growing to six by eight and six by ten has exact bounds',()=>{check(M.previewLayout([],6,8).length===48);const p=M.previewLayout([],6,10);check(p.length===60&&p.at(-1).rowLabel==='F'&&p.at(-1).seatNumber===10&&!p.some(s=>s.seatNumber>10));});
+ test('Preview preserves existing IDs type and inactive state',()=>{const p=M.previewLayout(seats,6,10);check(p[0].id===seats[0].id&&p[1].seatType==='VIP'&&!p[1].active);check(seats[1].active===false);});
+ test('Shrink identifies only outside persisted seats without modifying source',()=>{const saved=M.previewLayout([],6,10).map((s,i)=>({...s,id:String(i+1)}));const original=JSON.stringify(saved);const removed=M.removedSeats(saved,5,8);check(removed.length===20&&removed.every(s=>s.rowLabel==='F'||s.seatNumber>8));check(JSON.stringify(saved)===original);});
+ test('Missing positions are new only after explicit size preview',()=>{const p=M.previewLayout([seats[0]],1,3);check(p.length===3&&p[0].id===seats[0].id&&p[1].id===null);});
+ test('Unsupported dimensions cannot produce a partial preview',()=>{for(const [rows,count] of [[0,8],[31,8],[5,0],[5,201],[6,200],[1.5,8]]){let failed=false;try{M.previewLayout(seats,rows,count);}catch(e){failed=true;}check(failed);}});
 })(typeof window!=="undefined"?window:globalThis);

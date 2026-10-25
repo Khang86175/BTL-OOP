@@ -44,12 +44,13 @@ class ShowtimeWebIntegrationTest {
  @BeforeEach void fixture(){
   theaterId=theaters.create(new TheaterForm("Rạp Web","Địa chỉ thử",true)).getId();
   roomId=rooms.create(new RoomForm(theaterId,"Phòng Web",RoomType.IMAX,true)).getId();
-  seatId=seats.create(new SeatForm(roomId,"A",1,SeatType.VIP,true)).getId();
+  seatId=seats.createLayout(new SeatLayoutCreateForm(roomId,1,1)).getFirst().id();
+  seats.update(seatId,new SeatForm(roomId,"A",1,SeatType.VIP,true));
   Movie m=new Movie();m.setTitle("Phim Web");m.setDirector("Đạo diễn");m.setDurationMinutes(100);
   m.setReleaseDate(LocalDate.now(Movie.CINEMA_ZONE));m.setAgeRating(AgeRating.P);m.setSynopsis("Nội dung");
   movieId=movieRepo.saveAndFlush(m).getId();
   start=LocalDate.now(Movie.CINEMA_ZONE).plusDays(3).atTime(19,0);
-  showtimeId=schedules.create(new ShowtimeForm(movieId,roomId,start,new BigDecimal("80000"),ShowtimeStatus.OPEN)).id();
+  showtimeId=schedules.create(new ShowtimeForm(movieId,roomId,start,new BigDecimal("80000"),new BigDecimal("100000"),ShowtimeStatus.OPEN)).id();
  }
  @AfterEach void cleanup(){
   new TransactionTemplate(txManager).executeWithoutResult(tx->{
@@ -60,7 +61,7 @@ class ShowtimeWebIntegrationTest {
  @Test void adminListsAndAllFormsRenderWithoutOpenInView() throws Exception {
   for(String path:List.of("/admin/theaters","/admin/theaters/new","/admin/theaters/"+theaterId+"/edit",
    "/admin/rooms","/admin/rooms/new?theaterId="+theaterId,"/admin/rooms/"+roomId+"/edit",
-   "/admin/seats?roomId="+roomId,"/admin/seats/new?roomId="+roomId,"/admin/seats/"+seatId+"/edit",
+   "/admin/seats?roomId="+roomId,"/admin/seats/"+seatId+"/edit",
    "/admin/showtimes","/admin/showtimes/new","/admin/showtimes/"+showtimeId+"/edit"))
    mvc.perform(get(path)).andExpect(status().isOk());
   mvc.perform(get("/admin/showtimes/new")).andExpect(content().string(containsString("_csrf")));
@@ -88,18 +89,21 @@ class ShowtimeWebIntegrationTest {
   admin();assertThat(rooms.getSummary(roomId).active()).isFalse();
  }
  @Test void seatEditKeepsIdAndShowsInactiveLabel() throws Exception {
-  mvc.perform(post("/admin/seats/"+seatId).with(csrf()).param("roomId",roomId.toString()).param("rowLabel","A").param("seatNumber","1").param("seatType","COUPLE").param("active","false")).andExpect(status().is3xxRedirection());
-  admin();assertThat(seats.getById(seatId).seatType()).isEqualTo(SeatType.COUPLE);
-  mvc.perform(get("/admin/seats").param("roomId",roomId.toString())).andExpect(content().string(containsString("Ngừng dùng"))).andExpect(content().string(containsString("Ghế đôi")));
+  mvc.perform(post("/admin/seats/"+seatId).with(csrf()).param("roomId",roomId.toString()).param("rowLabel","A").param("seatNumber","1").param("seatType","NORMAL").param("active","false")).andExpect(status().is3xxRedirection());
+  admin();assertThat(seats.getById(seatId).seatType()).isEqualTo(SeatType.NORMAL);
+  mvc.perform(get("/admin/seats").param("roomId",roomId.toString())).andExpect(content().string(containsString("Ngừng dùng"))).andExpect(content().string(containsString("Thường")));
   assertThat(seatRepo.count()).isEqualTo(1);
  }
- @Test void seatCreateAndDuplicateValidation() throws Exception {
-  mvc.perform(post("/admin/seats").with(csrf()).param("roomId",roomId.toString()).param("rowLabel","A").param("seatNumber","2").param("seatType","NORMAL").param("active","true")).andExpect(status().is3xxRedirection());
-  mvc.perform(post("/admin/seats").with(csrf()).param("roomId",roomId.toString()).param("rowLabel","a").param("seatNumber","1").param("seatType","NORMAL").param("active","true")).andExpect(status().isOk()).andExpect(model().attributeHasErrors("form"));
+ @Test void existingLayoutCanGrowWithoutChangingOriginalSeat() throws Exception {
+  mvc.perform(post("/admin/seats/layout").with(csrf()).param("roomId",roomId.toString()).param("rowCount","5").param("seatsPerRow","8"))
+   .andExpect(status().is3xxRedirection());
+  mvc.perform(post("/admin/seats").with(csrf()).param("roomId",roomId.toString()).param("rowLabel","A").param("seatNumber","2").param("seatType","NORMAL").param("active","true")).andExpect(status().is4xxClientError());
+  assertThat(seatRepo.count()).isEqualTo(40);
+  assertThat(seatRepo.findById(seatId).orElseThrow().getSeatType()).isEqualTo(SeatType.VIP);
  }
  org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder showPost(String url,LocalDateTime time){
   return post(url).with(csrf()).param("movieId",movieId.toString()).param("roomId",roomId.toString())
-   .param("startTime",time.toString()).param("basePrice","95000").param("status","OPEN");
+   .param("startTime",time.toString()).param("normalPrice","95000").param("vipPrice","115000").param("status","OPEN");
  }
  @Test void showtimeCreateEditAndStatusTransitions() throws Exception {
   mvc.perform(showPost("/admin/showtimes",start.plusHours(3))).andExpect(status().is3xxRedirection());
@@ -112,9 +116,9 @@ class ShowtimeWebIntegrationTest {
  @Test void overlapPastPriceAndBadDateAreRejectedAndRender() throws Exception {
   mvc.perform(showPost("/admin/showtimes",start.plusMinutes(30))).andExpect(status().isOk()).andExpect(model().attributeHasErrors("form")).andExpect(content().string(containsString("Lịch chiếu trùng")));
   mvc.perform(showPost("/admin/showtimes",start.minusDays(5))).andExpect(status().isOk()).andExpect(model().attributeHasErrors("form"));
-  mvc.perform(post("/admin/showtimes").with(csrf()).param("movieId",movieId.toString()).param("roomId",roomId.toString()).param("startTime",start.plusHours(3).toString()).param("status","OPEN").param("basePrice","-1")).andExpect(status().isOk()).andExpect(model().attributeHasFieldErrors("form","basePrice"));
-  mvc.perform(post("/admin/showtimes").with(csrf()).param("startTime","khong-phai-ngay").param("basePrice","abc"))
-   .andExpect(status().isOk()).andExpect(model().attributeHasFieldErrors("form","startTime","basePrice"));
+  mvc.perform(post("/admin/showtimes").with(csrf()).param("movieId",movieId.toString()).param("roomId",roomId.toString()).param("startTime",start.plusHours(3).toString()).param("status","OPEN").param("normalPrice","-1").param("vipPrice","100000")).andExpect(status().isOk()).andExpect(model().attributeHasFieldErrors("form","normalPrice"));
+  mvc.perform(post("/admin/showtimes").with(csrf()).param("startTime","khong-phai-ngay").param("normalPrice","abc").param("vipPrice","xyz"))
+   .andExpect(status().isOk()).andExpect(model().attributeHasFieldErrors("form","startTime","normalPrice","vipPrice"));
  }
  @Test void hiddenMovieAndInactiveRoomReturnFormErrors() throws Exception {
   rooms.setActive(roomId,false);
@@ -243,5 +247,50 @@ class ShowtimeWebIntegrationTest {
   theaters.update(theaterId,new TheaterForm("<script>alert(1)</script>","Địa chỉ",true));
   mvc.perform(get("/admin/theaters")).andExpect(content().string(not(containsString("<script>alert(1)</script>"))))
    .andExpect(content().string(containsString("&lt;script&gt;")));
+ }
+ org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder pricePost(String url,String normal,String vip){
+  var request=post(url).with(csrf()).param("movieId",movieId.toString()).param("roomId",roomId.toString()).param("startTime",start.toString()).param("status","OPEN");
+  if(normal!=null)request.param("normalPrice",normal);if(vip!=null)request.param("vipPrice",vip);return request;
+ }
+ @Test void showtimeFormsExposeTwoRequiredPositivePriceInputsOnly() throws Exception {
+  for(String path:List.of("/admin/showtimes/new","/admin/showtimes/"+showtimeId+"/edit")){
+   mvc.perform(get(path)).andExpect(status().isOk()).andExpect(content().string(containsString("Giá vé thường (VNĐ)")))
+    .andExpect(content().string(containsString("Giá vé VIP (VNĐ)"))).andExpect(content().string(containsString("name=\"normalPrice\"")))
+    .andExpect(content().string(containsString("name=\"vipPrice\""))).andExpect(content().string(not(containsString("name=\"basePrice\""))));
+  }
+ }
+ @Test void normalAndVipCanBeEditedIndependentlyOverHttp() throws Exception {
+  mvc.perform(pricePost("/admin/showtimes/"+showtimeId,"85000","100000")).andExpect(status().is3xxRedirection());
+  assertThat(showRepo.findById(showtimeId).orElseThrow().getNormalPrice()).isEqualByComparingTo("85000");assertThat(showRepo.findById(showtimeId).orElseThrow().getVipPrice()).isEqualByComparingTo("100000");
+  mvc.perform(pricePost("/admin/showtimes/"+showtimeId,"85000","70000")).andExpect(status().is3xxRedirection());
+  mvc.perform(get("/admin/showtimes/"+showtimeId+"/edit")).andExpect(status().isOk()).andExpect(content().string(containsString("85000"))).andExpect(content().string(containsString("70000")));
+  assertThat(showRepo.findById(showtimeId).orElseThrow().getBasePrice()).isEqualByComparingTo("80000");
+ }
+ @Test void missingEitherPriceOrLegacyOnlySubmissionIsRejected() throws Exception {
+  mvc.perform(pricePost("/admin/showtimes/"+showtimeId,null,"100000")).andExpect(status().isOk()).andExpect(model().attributeHasFieldErrors("form","normalPrice"));
+  mvc.perform(pricePost("/admin/showtimes/"+showtimeId,"80000",null)).andExpect(status().isOk()).andExpect(model().attributeHasFieldErrors("form","vipPrice"));
+  mvc.perform(pricePost("/admin/showtimes/"+showtimeId,null,null).param("basePrice","99000")).andExpect(status().isOk()).andExpect(model().attributeHasFieldErrors("form","normalPrice","vipPrice"));
+  assertThat(showRepo.findById(showtimeId).orElseThrow().getNormalPrice()).isEqualByComparingTo("80000");
+ }
+ @Test void malformedAndNonPositivePricesRejectedWithoutChangingStoredValues() throws Exception {
+  for(String value:List.of("0","-1","abc","NaN","Infinity","0.001","10000000000")){
+   mvc.perform(pricePost("/admin/showtimes/"+showtimeId,value,"100000")).andExpect(status().isOk()).andExpect(model().attributeHasFieldErrors("form","normalPrice"));
+   mvc.perform(pricePost("/admin/showtimes/"+showtimeId,"80000",value)).andExpect(status().isOk()).andExpect(model().attributeHasFieldErrors("form","vipPrice"));
+  }
+  assertThat(showRepo.findById(showtimeId).orElseThrow().getNormalPrice()).isEqualByComparingTo("80000");assertThat(showRepo.findById(showtimeId).orElseThrow().getVipPrice()).isEqualByComparingTo("100000");
+ }
+ @Test void anonymousListAndDetailShowBothPrices() throws Exception {
+  mvc.perform(get("/showtimes").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous()).param("date",start.toLocalDate().toString()))
+   .andExpect(status().isOk()).andExpect(content().string(containsString("80,000.00"))).andExpect(content().string(containsString("100,000.00")));
+  mvc.perform(get("/showtimes/"+showtimeId).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous()))
+   .andExpect(status().isOk()).andExpect(content().string(containsString("Giá vé thường"))).andExpect(content().string(containsString("Giá vé VIP")))
+   .andExpect(content().string(containsString("80,000.00"))).andExpect(content().string(containsString("100,000.00")));
+ }
+ @Test void legacyPricesRemainVisibleToAdminAndRequireExplicitConfiguration() throws Exception {
+  var old=new Showtime();old.setMovie(movieRepo.findById(movieId).orElseThrow());old.setRoom(roomRepo.findById(roomId).orElseThrow());old.setStartTime(start.plusHours(3));old.setEndTime(start.plusHours(3).plusMinutes(100));old.setBasePrice(new BigDecimal("75000"));old.setStatus(ShowtimeStatus.OPEN);old=showRepo.saveAndFlush(old);
+  mvc.perform(get("/admin/showtimes")).andExpect(status().isOk()).andExpect(content().string(containsString("Chưa cập nhật")));
+  mvc.perform(get("/admin/showtimes/"+old.getId()+"/edit")).andExpect(status().isOk()).andExpect(content().string(containsString("Lịch cũ chưa có đủ hai mức giá")));
+  mvc.perform(get("/showtimes/"+old.getId()).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isNotFound());
+  assertThat(showRepo.findById(old.getId()).orElseThrow().getBasePrice()).isEqualByComparingTo("75000");
  }
 }

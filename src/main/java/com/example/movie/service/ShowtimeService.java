@@ -50,7 +50,9 @@ public class ShowtimeService {
   LocalDateTime end=f.startTime().plusMinutes(m.getDurationMinutes());
   if(f.status().occupiesRoom()&&showtimes.countOverlaps(r.getId(),id==null?-1L:id,f.startTime(),end)>0)
    throw new ScheduleValidationException("startTime","Lịch chiếu trùng trong phòng.");
-  s.setMovie(m);s.setRoom(r);s.setStartTime(f.startTime());s.setEndTime(end);s.setBasePrice(f.basePrice());s.setStatus(f.status());
+  s.setMovie(m);s.setRoom(r);s.setStartTime(f.startTime());s.setEndTime(end);
+  if(id==null)s.setBasePrice(f.normalPrice()); // Satisfy the legacy NOT NULL column; never treat it as the new VIP price.
+  s.setNormalPrice(f.normalPrice());s.setVipPrice(f.vipPrice());s.setStatus(f.status());
   return ShowtimeSummary.from(showtimes.saveAndFlush(s));
  }
  public List<ShowtimeSummary> findOpenShowtimes(Long movieId,Long theaterId,LocalDate date){
@@ -62,7 +64,8 @@ public class ShowtimeService {
  public ShowtimeSummary getBookableShowtime(Long id){return ShowtimeSummary.from(requireBookable(id));}
  public List<SeatSummary> findActiveSeats(Long showtimeId){
   Showtime s=requireBookable(showtimeId);
-  return seats.findByRoomIdAndActiveTrueOrderByRowLabelAscSeatNumberAsc(s.getRoom().getId()).stream().map(SeatSummary::from).toList();
+  return seats.findByRoomIdAndActiveTrueOrderByRowLabelAscSeatNumberAsc(s.getRoom().getId()).stream()
+   .filter(seat->seat.getSeatType().isSupported()).map(SeatSummary::from).toList();
  }
  private Showtime requireBookable(Long id){
   Showtime s=showtimes.findById(id).orElseThrow(()->new ScheduleValidationException("showtimeId","Không tìm thấy lịch."));

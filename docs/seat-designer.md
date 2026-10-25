@@ -1,80 +1,39 @@
-# B.3 — Trình thiết kế sơ đồ ghế
+# Seat Designer — cập nhật trực tiếp, không có bản nháp riêng
 
-## Mở trên H2 Demo
+## Thao tác
 
-Build rồi khởi động JAR mới:
+1. Vào /admin/seats?roomId=... với tài khoản ADMIN.
+2. Nhập số hàng và số ghế mỗi hàng. Sơ đồ hiển thị thay đổi ngay; chưa có dữ liệu nào được ghi chỉ bởi thay đổi input.
+3. Nhấn Tạo sơ đồ cho phòng trống hoặc Cập nhật sơ đồ cho phòng có ghế. Một POST lưu trực tiếp; không có Lưu bản nháp, không lưu bản nháp vào DB/localStorage, không bước duyệt lưu lần hai.
+4. Nhấn từng ghế đã lưu để sửa NORMAL/VIP hoặc active/inactive, rồi Lưu ghế. Ghế mới trong hình xem trước chỉ sửa sau khi đã được tạo.
+5. Xóa ghế đang chọn hoặc Xóa toàn bộ sơ đồ cần một lần xác nhận. Giảm kích thước cũng chỉ xác nhận thao tác xóa các ghế ngoài phạm vi; nếu hủy thì không gửi yêu cầu ghi.
 
-```powershell
-java -jar target/movie-0.0.1-SNAPSHOT.jar --spring.profiles.active=demo --showtime.seed.enabled=true
-```
+Hàng luôn A, B, C… (sau Z là AA), số ghế từ 1. Ghế mới mặc định NORMAL/active. Giới hạn 1–30 hàng, 1–200 ghế mỗi hàng, tổng tối đa 1.000 ghế.
+Không có COUPLE trong lựa chọn, lối đi, số bắt đầu tùy chỉnh, chọn nhiều ghế hoặc đổi loại hàng loạt.
 
-Đăng nhập admin@cineticket.test / DemoAdmin123!, mở Phòng và ghế, chọn Ghế của một phòng.
-URL chính giữ nguyên: /admin/seats?roomId=ID.
-Seed demo chỉ tạo rạp/phòng/lịch chiếu, không tạo ghế hay dựng sẵn A/B/C.
-Phòng demo mới bắt đầu rỗng. Ghế đã được lưu trước đây vẫn được tải để bảo toàn dữ liệu;
-seed không tự xóa hoặc đặt lại sơ đồ đã có.
-Phòng rỗng hiện chế độ Tạo sơ đồ mới; phòng đã có dữ liệu hiện Chỉnh sửa sơ đồ hiện có.
-JavaScript cần bật. Khi tắt JavaScript, vẫn có liên kết thêm/sửa ghế riêng.
+## Bảo toàn và xóa an toàn
 
-## Thao tác trực tiếp trên sơ đồ
+- Cùng vị trí giữ ID, loại và trạng thái, kể cả inactive; đổi kích thước không tự bật lại ghế.
+- Ghế ngoài hình chữ nhật chỉ bị xóa khi Admin xác nhận và tất cả ghế đó chưa được tham chiếu. Nếu một ghế bị tham chiếu, toàn bộ cập nhật bị từ chối, không xóa một phần hoặc thêm một phần.
+- Khóa Room và các Seat trong transaction; kiểm tra metadata FK và các bảng con trước DELETE; rollback nếu có lỗi.
+- Chặn cả booking_seats, showtime_seats và bảng khác có FK tới Seat.id, kể cả FK CASCADE. Không tự dọn ShowtimeSeat AVAILABLE; đây vẫn là tham chiếu cần giữ.
+- Nếu bảng Booking/ShowtimeSeat đã có nhưng thiếu FK seat_id, không đọc được metadata hoặc không xác minh được cấu trúc, thao tác xóa bị chặn. Cần quyền đọc metadata và FK thực tế trước khi cho phép xóa.
+- Không thay đổi phòng khác. ID không di chuyển sang hàng/số khác.
+- Xóa riêng không đánh lại số ghế còn lại. GET/tải lại không tạo lại ghế đã xóa. Nếu Admin chủ động cập nhật hình chữ nhật chứa vị trí đã xóa, vị trí thiếu được tạo mới với ID mới, NORMAL/active.
+- A11/A12 hoặc hàng cũ bất thường không tự thay đổi khi mở trang. Nếu chúng ngoài kích thước Admin mới chọn, áp dụng cùng quy tắc xác nhận/kiểm tra tham chiếu, không tự bỏ qua kiểm tra.
+- Không cần bảng SeatRowLayout hoặc schema mới. Bảng seat_row_layouts nếu từng có vẫn để nguyên; không có DROP/migration tự động.
 
-1. Nhập hàng bắt đầu A, tổng 5 hàng, 10 ghế mặc định. Tạo sơ đồ sẽ hiện A–E ngay,
-   mỗi hàng 10 vị trí. Tất cả ghế mới khởi tạo là NORMAL (Thường), chỉ là mặc định
-   kỹ thuật; hệ thống không tự gán VIP/Ghế đôi theo vị trí hàng.
-   Nút Tạo / cập nhật bố cục cập nhật cả số ghế của các hàng đã có trong khoảng chọn,
-   không bỏ qua A/B/C. Ví dụ A–E, 10 ghế sẽ mở rộng A/B/C từ 8 lên 10 và thêm D/E.
-   Giữ nguyên ID, loại và trạng thái từng ghế cũ; vị trí mới là Thường.
-   Khi giảm số ghế, ghế cũ ngoài khoảng chỉ chuyển ngừng hoạt động và vẫn hiện xám.
-   Hàng ngoài khoảng chọn không bị tự xóa.
-2. Nhấn chữ C để đặt 14 ghế VIP, D 14 VIP, E 8 ghế đôi. Ghế luôn căn giữa cùng
-   trục màn hình; nhãn hàng dùng cột riêng bên trái và căn giữa theo chiều dọc.
-3. Các trường Loại/Trạng thái mặc định giữ tùy chỉnh riêng từng ghế.
-   Muốn áp dụng loại/trạng thái chọn cho cả ghế cũ, tích ô xác nhận trong bảng hàng.
-   Nếu không tích, lựa chọn chỉ áp dụng cho ghế mới; ghế cũ giữ nguyên thuộc tính.
-4. Nhấn một ghế để sửa loại/trạng thái trong bản nháp; trang sửa riêng cũ vẫn có liên kết.
-   Dùng ô chọn để chỉnh nhiều ghế, hoặc Chọn toàn bộ hàng này từ bảng hàng.
-5. Chừa lối đi bằng danh sách số vị trí, ví dụ 6,7. Số lượng là số ghế thực, không
-   bao gồm lối đi: 12 ghế bắt đầu từ 1, bỏ 6,7 sẽ dùng 1–5 và 8–14.
-   Không có bản ghi ghế giả.
-6. Nhấn Lưu sơ đồ phòng chiếu. Nếu có đổi loại/trạng thái ghế cũ, cần tích xác nhận
-   ở phần lưu. Tất cả thay đổi được gửi trong một transaction và trang tải lại từ DB.
+## Endpoint quản trị
 
-## Giảm số ghế, xóa hàng và bảo toàn dữ liệu
+- GET /admin/seats?roomId=...: chỉ đọc; kích thước mặc định suy ra từ ghế thực tế, hoặc 5 × 8 khi phòng trống.
+- POST /admin/seats/layout: SeatLayoutCreateForm(roomId, rowCount, seatsPerRow, confirmRemoval). Flag xóa không thay thế kiểm tra tham chiếu ở server.
+- GET /admin/seats/{id}/edit và POST /admin/seats/{id}: sửa riêng loại/trạng thái theo SeatForm cũ.
+- POST /admin/seats/{id}/delete: roomId, confirmed; kiểm tra ghế thuộc đúng phòng.
+- POST /admin/seats/layout/delete: roomId, confirmed; tất cả hoặc không xóa gì.
+- Mọi POST có CSRF, mọi URL quản trị yêu cầu ADMIN. Service kiểm tra Admin kể cả gọi trực tiếp. Endpoint batch/designer cũ vẫn bị gỡ.
 
-- Hàng/ghế mới chưa lưu: bỏ khỏi bản nháp ngay, kể cả hàng cuối cùng.
-- Ghế đã lưu nằm ngoài khoảng mới, tại lối đi hoặc trong hàng bị xóa: chuyển ngừng
-  hoạt động, vẫn hiện xám trên bản nháp và sau khi lưu. Không hard delete và không đổi ID.
-- Vì schema chưa có khái niệm vị trí đã loại khỏi sơ đồ khác với ghế tạm ngừng hoạt động,
-  ghế cũ vẫn hiển thị xám tại vị trí cũ. Đây là lựa chọn bảo toàn dữ liệu được thông báo
-  rõ; không giả vờ đã xóa ghế hay đã kiểm tra module Booking chưa tồn tại.
-- Muốn bật lại, chọn ghế/hàng đó, chọn Hoạt động và xác nhận thay đổi ghế cũ.
-- Không tự tính ghế đôi thành hai vé. Không thay đổi API Booking, Entity/schema hoặc
-  logic User/Auth/Movie/Category.
+SeatService.createLayout vẫn có để khởi tạo nghiêm ngặt cho Java caller cũ; web dùng saveLayout để tạo/cập nhật trực tiếp. API Booking và SeatSummary không đổi; ghế active không đồng nghĩa còn vé.
 
-## Đồng thời, xác nhận và giới hạn
+COUPLE chỉ tạm giữ trong enum để JPA đọc dữ liệu cũ; không cho gán mới. Chọn NORMAL/VIP để chuyển đổi rõ ràng; không tự chạy migration. Xem seat-types-migration.md.
 
-- loadLayout() trả ghế và snapshot từ cùng một lần đọc.
-- saveLayout() khóa Room, đối chiếu snapshot, xác thực vị trí/ID và yêu cầu xác nhận
-  khi có thay đổi ghế đã lưu. Snapshot cũ trả 409, không ghi đè chỉnh sửa ở nơi khác.
-- Ghế cũ được khớp bằng ID và vị trí; vị trí đã có không bị coi là insert mới.
-  Không nhận ID phòng khác và không chuyển ID sang vị trí khác trong trình thiết kế.
-- Ghế cũ bị bỏ khỏi yêu cầu chỉ ngừng hoạt động. Ghế mới chỉ được insert sau khi
-  toàn bộ yêu cầu hợp lệ. Lỗi DB rollback cả cập nhật cũ và insert mới.
-- Không bắt buộc phòng có hàng khi lưu sơ đồ rỗng. Hàng rỗng chưa có ghế chỉ tồn tại
-  trong bản nháp, vì schema không có bảng hàng ghế riêng.
-- Trình thiết kế giới hạn 1.000 ghế; công cụ sinh hàng tối đa 30 hàng mỗi lần,
-  số vị trí mới từ 1 đến 200. ID được giữ dưới dạng chuỗi trong JavaScript để không
-  bị mất độ chính xác số nguyên Long.
-
-## Kiểm thử
-
-- SeatDesignerIntegrationTest: tạo A–E, sửa hàng đã có, tăng/giảm, giữ ID, ngừng hoạt
-  động cả hàng, bảo vệ tùy chỉnh, snapshot, ID sai, rollback, đồng thời, quyền/CSRF.
-- seat-designer-model.test.js: kiểm tra mô hình bản nháp và công thức tọa độ, độc lập DOM.
-- src/test/scripts/seat-designer-browser.ps1: chạy JAR H2 riêng cổng 18083 và Edge headless
-  để thao tác thực, đo căn giữa/nhãn hàng theo pixel, lưu/tải lại, đối chiếu ID.
-  Script tự dừng tiến trình do nó tạo; không chạm ứng dụng demo đang chạy cổng 8080.
-  Kết quả/ảnh nằm trong target/seat-designer-browser, không đưa vào Git.
-
-Các endpoint B.2 vẫn giữ để tương thích các luồng/test cũ, nhưng trang chính đã chuyển
-sang trình thiết kế. TC07 về trùng rạp vẫn chưa áp dụng quy tắc mới.
+Kết quả kiểm thử và danh sách file hiện tại: seat-direct-save-review.md. Các báo cáo tinh giản trước đó chỉ mô tả phiên bản lịch sử.

@@ -23,10 +23,13 @@ CREATE TABLE IF NOT EXISTS showtimes (
  id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
  movie_id BIGINT NOT NULL, room_id BIGINT NOT NULL,
  start_time DATETIME(6) NOT NULL, end_time DATETIME(6) NOT NULL,
- base_price DECIMAL(12,2) NOT NULL, status VARCHAR(20) NOT NULL,
+ base_price DECIMAL(12,2) NOT NULL,
+ normal_price DECIMAL(12,2) NULL, vip_price DECIMAL(12,2) NULL,
+ status VARCHAR(20) NOT NULL,
  CONSTRAINT fk_showtimes_movie FOREIGN KEY(movie_id) REFERENCES movies(id),
  CONSTRAINT fk_showtimes_room FOREIGN KEY(room_id) REFERENCES rooms(id),
  CONSTRAINT chk_showtimes_values CHECK(base_price >= 0 AND end_time > start_time),
+ CONSTRAINT chk_showtimes_prices CHECK((normal_price IS NULL OR normal_price > 0) AND (vip_price IS NULL OR vip_price > 0)),
  INDEX idx_showtimes_room_time(room_id,start_time,end_time),
  INDEX idx_showtimes_movie_time(movie_id,start_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
