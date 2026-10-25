@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/catalog :: head('Chỉnh sửa ghế')}"></head>
+<body><th:block th:replace="~{fragments/navbar :: navbar}"></th:block>
+<th:block th:replace="~{fragments/schedule :: nav}"></th:block>
+<main class="container page-section"><h1 class="h2">Chỉnh sửa ghế</h1>
+ <p th:text="${room.theaterName+' / '+room.name}"></p>
+ <form class="panel p-4 schedule-form" th:object="${form}" th:action="@{/admin/seats/{id}(id=${id})}" method="post">
+  <th:block th:replace="~{fragments/schedule :: errors}"></th:block>
+  <p>ID: <strong th:text="${id}"></strong> · Vị trí: <strong th:text="${seat.rowLabel + seat.seatNumber}"></strong></p>
+  <p class="small text-secondary">ID, phòng, hàng và số ghế đã lưu được giữ nguyên.</p>
+  <input type="hidden" th:field="*{roomId}"><input type="hidden" th:field="*{rowLabel}"><input type="hidden" th:field="*{seatNumber}">
+  <label for="seatType" class="form-label">Loại ghế</label><select th:field="*{seatType}" class="form-select mb-3" required><option value="">Chọn Thường hoặc VIP để lưu</option><option value="NORMAL">Thường</option><option value="VIP">VIP</option></select>
+  <div class="form-check mb-3"><input type="checkbox" class="form-check-input" th:field="*{active}"><label class="form-check-label" th:for="${#ids.prev('active')}">Đang hoạt động</label></div>
+  <button class="btn btn-success" type="submit">Lưu ghế</button>
+  <a class="btn btn-outline-secondary" th:href="@{/admin/seats(roomId=${room.id})}">Quay lại sơ đồ</a>
+ </form>
+</main><th:block th:replace="~{fragments/catalog :: footer}"></th:block></body></html>

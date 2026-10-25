@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/catalog :: head('Quản lý ghế')}"></head>
+<body>
+<th:block th:replace="~{fragments/navbar :: navbar}"></th:block>
+<th:block th:replace="~{fragments/schedule :: nav}"></th:block>
+<main class="container page-section" id="seat-manager">
+ <p class="eyebrow text-success">CINETICKET / QUẢN LÝ PHÒNG CHIẾU</p>
+ <h1 class="h2 fw-bold">Sơ đồ ghế</h1>
+ <p th:text="${room.theaterName + ' / ' + room.name}"></p>
+ <th:block th:replace="~{fragments/schedule :: alerts}"></th:block>
+ <div th:if="${hasLegacySeatTypes}" class="alert alert-warning">Có ghế dùng loại cũ chưa hỗ trợ đặt vé mới. Dữ liệu và ID được giữ nguyên. Chọn rõ Thường hoặc VIP khi chuyển đổi; ghế inactive không được tự bật.</div>
+ <form th:object="${createForm}" th:action="@{/admin/seats/layout}" method="post" id="create-layout-form" class="panel p-4 mb-4">
+  <h2 class="h5" th:text="${#lists.isEmpty(seats)} ? 'Tạo sơ đồ' : 'Cập nhật sơ đồ'"></h2>
+  <p>Đổi số hàng hoặc số ghế để xem ngay kích thước mới, rồi nhấn nút để lưu trực tiếp. Ghế giữ nguyên vị trí giữ ID, loại và trạng thái; ghế mới là Thường.</p>
+  <div class="alert alert-danger" th:if="${#fields.hasErrors('*')}"><p class="mb-1" th:each="e : ${#fields.allErrors()}" th:text="${e}"></p></div>
+  <input type="hidden" th:field="*{roomId}">
+  <input type="hidden" name="confirmRemoval" id="confirm-removal" value="false">
+  <div class="row g-3 align-items-end">
+   <div class="col-sm-4"><label for="rowCount" class="form-label">Số hàng ghế</label><input th:field="*{rowCount}" type="number" min="1" max="30" required class="form-control"></div>
+   <div class="col-sm-4"><label for="seatsPerRow" class="form-label">Số ghế mỗi hàng</label><input th:field="*{seatsPerRow}" type="number" min="1" max="200" required class="form-control"></div>
+   <div class="col-sm-4"><button id="save-layout" class="btn btn-success w-100" type="submit" th:text="${#lists.isEmpty(seats)} ? 'Tạo sơ đồ' : 'Cập nhật sơ đồ'"></button></div>
+  </div><p class="small text-secondary mt-2 mb-0">Tối đa 1.000 ghế khi tạo sơ đồ.</p>
+ </form>
+ <p id="layout-message" class="small text-secondary" role="status">Sơ đồ đã lưu được giữ nguyên cho tới khi bạn chủ động cập nhật.</p>
+ <form th:unless="${#lists.isEmpty(seats)}" id="delete-layout-form" data-confirm-delete="toàn bộ sơ đồ" th:action="@{/admin/seats/layout/delete}" method="post" class="mb-3">
+  <input type="hidden" name="roomId" th:value="${room.id}"><input type="hidden" name="confirmed" value="false"><button type="submit" class="btn btn-outline-danger">Xóa toàn bộ sơ đồ</button>
+ </form>
+ <div class="seat-workspace">
+  <section class="panel p-3 seat-map-panel">
+   <h2 class="h5">Chọn một ghế để chỉnh sửa</h2>
+   <div class="seat-legend mb-3"><span class="legend-normal">Thường</span><span class="legend-vip">VIP</span><span class="legend-off">Ngừng dùng</span></div>
+   <div class="seat-map-scroll"><div class="seat-map-inner">
+    <div class="seat-map-screen"><span></span><div class="screen-label">MÀN HÌNH</div></div>
+    <div id="seat-canvas"><div th:each="row : ${rows}" class="seat-map-row" th:attr="data-row=${row.key}">
+     <strong class="seat-map-label" th:text="${row.key}"></strong>
+     <div class="seat-map-track">
+      <a th:each="s : ${row.value}" class="seat-box" th:href="@{/admin/seats/{id}/edit(id=${s.id})}"
+       th:classappend="${'seat-' + (s.seatType.isSupported() ? s.seatType.name() : 'legacy') + (s.active ? '' : ' seat-inactive')}"
+       th:attr="data-seat-id=${s.id},data-row=${s.rowLabel},data-number=${s.seatNumber},data-type=${s.seatType.name()},data-active=${s.active}">
+       <span th:text="${s.rowLabel+s.seatNumber}"></span><small th:text="${seatLabels[s.seatType.name()] ?: 'Loại cũ: cần chuyển đổi'}"></small><small th:unless="${s.active}">Ngừng dùng</small>
+      </a>
+     </div>
+    </div></div>
+   </div></div>
+   <p class="small text-secondary mt-3 mb-0"><span th:text="${#lists.size(seats)}"></span> ghế đã lưu. Giảm kích thước hoặc xóa ghế cần xác nhận và kiểm tra tham chiếu phía server.</p>
+  </section>
+  <aside>
+   <div id="seat-hint" class="panel p-3">Nhấn một ghế trên sơ đồ. Thay đổi chỉ được ghi khi nhấn Lưu ghế.</div>
+   <form id="seat-edit-form" class="panel p-3" hidden method="post" th:action="@{/admin/seats}" th:attr="data-base-url=@{/admin/seats}">
+    <h2 id="seat-title" class="h5">Chỉnh sửa ghế</h2><p id="seat-id" class="small text-secondary"></p>
+    <input name="roomId" type="hidden" th:value="${room.id}"><input name="rowLabel" id="edit-row" type="hidden"><input name="seatNumber" id="edit-number" type="hidden">
+    <label for="edit-type" class="form-label">Loại ghế</label><select name="seatType" id="edit-type" class="form-select mb-3" required><option value="">Chọn loại ghế</option><option value="NORMAL">Thường</option><option value="VIP">VIP</option></select>
+    <input name="_active" type="hidden" value="on"><div class="form-check mb-3"><input name="active" id="edit-active" value="true" type="checkbox" class="form-check-input"><label for="edit-active" class="form-check-label">Đang hoạt động</label></div>
+    <button type="submit" class="btn btn-success w-100">Lưu ghế</button>
+   </form>
+   <form id="seat-delete-form" hidden data-confirm-delete="ghế đang chọn" method="post" th:action="@{/admin/seats}" th:attr="data-base-url=@{/admin/seats}" class="panel p-3 mt-2">
+    <input type="hidden" name="roomId" th:value="${room.id}"><input type="hidden" name="confirmed" value="false"><button type="submit" class="btn btn-outline-danger w-100">Xóa ghế đang chọn</button>
+   </form>
+  </aside>
+ </div>
+ <a th:href="@{/admin/rooms(theaterId=${room.theaterId})}" class="btn btn-outline-secondary mt-3">Quay lại phòng</a>
+ <div id="saved-seat-data" hidden><span th:each="s : ${seats}" th:attr="data-seat-id=${s.id},data-row=${s.rowLabel},data-number=${s.seatNumber},data-type=${s.seatType.name()},data-active=${s.active}"></span></div>
+</main>
+<script th:src="@{/js/seat-designer-model.js}" defer></script>
+<script th:src="@{/js/seat-designer.js}" defer></script>
+<th:block th:replace="~{fragments/catalog :: footer}"></th:block>
+</body></html>

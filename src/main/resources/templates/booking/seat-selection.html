@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/catalog :: head('Chọn ghế')}"></head>
+<body class="bg-light">
+<th:block th:replace="~{fragments/navbar :: navbar}"></th:block>
+<style>
+    .screen { background: #6c757d; color: white; text-align: center; padding: 10px; border-radius: 5px; font-weight: bold; margin-bottom: 30px;}
+    .seat-box {
+        display: inline-block; width: 75px; margin: 5px; padding: 8px 4px;
+        border-radius: 6px; text-align: center; font-size: 13px; cursor: pointer;
+    }
+    .seat-REGULAR { background-color: #d1e7dd; border: 1px solid #0f5132; }
+    .seat-VIP { background-color: #fff3cd; border: 2px solid #ffc107; color: #856404; font-weight: bold;}
+    .seat-BOOKED { background-color: #e2e3e5; color: #6c757d; border: 1px solid #adb5bd; cursor: not-allowed; }
+</style>
+<main class="container py-5">
+<div class="bg-white p-4 rounded shadow-sm mx-auto" style="max-width: 850px;">
+
+    <h2 class="mb-4 text-center fw-bold">Chọn ghế suất chiếu #<span th:text="${showtimeId}"></span></h2>
+
+    <!-- Khu vực hiển thị thông báo Lỗi hoặc Thành công -->
+    <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
+    <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
+
+    <!-- Form gửi dữ liệu đặt vé -->
+    <form th:action="@{/bookings}" method="post">
+
+        <!-- Token bảo mật bắt buộc của Spring Security -->
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" th:if="${_csrf}" />
+
+        <!-- Gửi ngầm ID của suất chiếu -->
+        <input type="hidden" name="showtimeId" th:value="${showtimeId}" />
+
+        <div class="screen">MÀN HÌNH CHIẾU</div>
+
+        <div class="d-flex flex-wrap justify-content-center mb-4">
+            <!-- Vòng lặp in ra từng chiếc ghế -->
+            <div th:each="ss : ${seats}" class="m-1">
+
+                <!-- TRƯỜNG HỢP 1: Ghế còn trống (AVAILABLE) -->
+                <label th:if="${ss.status.name() == 'AVAILABLE'}"
+                       class="seat-box"
+                       th:classappend="${ss.seat != null and ss.seat.seatType != null and ss.seat.seatType.name() == 'VIP'} ? 'seat-VIP' : 'seat-REGULAR'">
+
+                    <!-- Checkbox để khách chọn ghế (Ẩn đi nếu muốn đẹp hơn, ở đây để nguyên cho dễ hiểu) -->
+                    <input type="checkbox" name="seatIds" th:value="${ss.seat != null ? ss.seat.id : ss.id}">
+
+                    <!-- Hiển thị Số ghế và Hàng ghế (Ví dụ: A1) -->
+                    <div>Ghế <span th:text="${ss.seat.rowLabel + ss.seat.seatNumber}"></span></div>
+
+                    <!-- Đánh dấu chữ VIP hoặc THƯỜNG -->
+                    <small th:text="${ss.seat != null and ss.seat.seatType != null and ss.seat.seatType.name() == 'VIP'} ? 'VIP' : 'THƯỜNG'"></small>
+                </label>
+
+                <!-- TRƯỜNG HỢP 2: Ghế đã có người đặt (BOOKED) -->
+                <div th:if="${ss.status.name() == 'BOOKED'}" class="seat-box seat-BOOKED">
+                    <div>Ghế <span th:text="${ss.seat.rowLabel + ss.seat.seatNumber}"></span></div>
+                    <small>Đã đặt</small>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Nút bấm quay lại hoặc Xác nhận -->
+        <div class="d-flex justify-content-between mt-4">
+            <a th:href="@{'/showtimes/' + ${showtimeId}}" class="btn btn-outline-secondary">Quay lại chi tiết</a>
+            <button type="submit" class="btn btn-success btn-lg">Xác nhận & Đặt vé</button>
+        </div>
+    </form>
+
+</div>
+</main>
+</body>
+</html>

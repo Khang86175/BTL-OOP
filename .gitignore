@@ -1,0 +1,48 @@
+# Build output
+target/
+build/
+
+# IDE config
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Local environment and credentials
+.env
+.env.*
+
+# Build artifacts outside target (keep the Maven Wrapper bootstrap JAR)
+*.jar
+*.class
+!/.mvn/wrapper/maven-wrapper.jar
+
+# Local databases and dumps (SQL schema files remain eligible)
+*.mv.db
+*.h2.db
+*.trace.db
+*.sqlite
+*.sqlite3
+*.sql.gz
+*.sql.zip
+*.dump
+*-dump.sql
+*_dump.sql
+dump-*.sql
+dump_*.sql
+Dump*.sql
+/backups/
+/dumps/
+
+# Temporary files and local test artifacts
+*.tmp
+*.bak
+*.swp
+*~
+/tmp/
+/test-artifacts/

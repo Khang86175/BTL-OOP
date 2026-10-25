@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/catalog :: head('Quản lý lịch chiếu')}"></head>
+<body><th:block th:replace="~{fragments/navbar :: navbar}"></th:block>
+<th:block th:replace="~{fragments/schedule :: nav}"></th:block>
+<main class="container page-section"><h1 class="fw-bold mb-4">Quản lý lịch chiếu</h1>
+ <th:block th:replace="~{fragments/schedule :: alerts}"></th:block>
+ <a class="btn btn-success mb-4" th:href="@{/admin/showtimes/new}">Thêm lịch chiếu</a>
+ <p class="small text-secondary">Đã đóng vẫn chiếm phòng, đã hủy không chiếm phòng. Lịch cũ chưa có đủ hai giá vẫn được giữ và cần cập nhật giá trước khi mở bán.</p>
+ <div class="table-responsive panel"><table class="table schedule-table"><thead><tr><th>Phim</th><th>Rạp / phòng</th><th>Bắt đầu / kết thúc</th><th>Giá thường</th><th>Giá VIP</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>
+  <tr th:if="${#lists.isEmpty(showtimes)}"><td colspan="7">Chưa có lịch chiếu.</td></tr>
+  <tr th:each="x : ${showtimes}" th:attr="data-showtime-id=${x.id},data-normal-price=${x.normalPrice},data-vip-price=${x.vipPrice}">
+   <td th:text="${x.movieTitle}"></td><td th:text="${x.theaterName + ' / ' + x.roomName}"></td>
+   <td><span th:text="${#temporals.format(x.startTime,'dd/MM/yyyy HH:mm')}"></span><br><small th:text="${#temporals.format(x.endTime,'dd/MM/yyyy HH:mm')}"></small></td>
+   <td class="normal-price" th:text="${x.normalPrice == null} ? 'Chưa cập nhật' : ${#numbers.formatDecimal(x.normalPrice,0,'COMMA',2,'POINT') + ' đ'}"></td>
+   <td class="vip-price" th:text="${x.vipPrice == null} ? 'Chưa cập nhật' : ${#numbers.formatDecimal(x.vipPrice,0,'COMMA',2,'POINT') + ' đ'}"></td>
+   <td><span class="badge" th:classappend="${x.status.name() == 'OPEN'} ? 'bg-success' : 'bg-secondary'" th:text="${statusLabels[x.status.name()]}"></span><small class="d-block text-warning" th:if="${x.normalPrice == null or x.vipPrice == null}">Chưa đủ giá để mở bán</small></td>
+   <td><div class="schedule-actions"><a class="btn btn-outline-success btn-sm" th:href="@{/admin/showtimes/{id}/edit(id=${x.id})}">Sửa</a><form th:if="${x.status.name() == 'OPEN'}" method="post" th:action="@{/admin/showtimes/{id}/status(id=${x.id})}"><input type="hidden" name="status" value="CLOSED"><button class="btn btn-outline-secondary btn-sm">Đóng</button></form><form th:unless="${x.status.name() == 'CANCELLED'}" method="post" th:action="@{/admin/showtimes/{id}/status(id=${x.id})}"><input type="hidden" name="status" value="CANCELLED"><button class="btn btn-outline-danger btn-sm">Hủy</button></form></div></td>
+  </tr>
+ </tbody></table></div>
+</main><th:block th:replace="~{fragments/catalog :: footer}"></th:block></body></html>
