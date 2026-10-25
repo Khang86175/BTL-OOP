@@ -1,11 +1,14 @@
 package com.example.movie.controller;
 
 import com.example.movie.dto.BookingRequest;
-import com.example.movie.model.Booking;
+import com.example.movie.dto.BookingResponse;
 import com.example.movie.model.ShowtimeSeat;
+import com.example.movie.model.User;
+import com.example.movie.repository.UserRepository;
 import com.example.movie.service.BookingService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -14,31 +17,30 @@ import java.util.List;
 @RequestMapping("/api/bookings")
 public class BookingController {
 
-    @Autowired
-    private BookingService bookingService;
+    private final BookingService bookingService;
+    private final UserRepository userRepository;
 
-    // 1. API lấy sơ đồ ghế theo suất chiếu
+    public BookingController(BookingService bookingService, UserRepository userRepository) {
+        this.bookingService = bookingService;
+        this.userRepository = userRepository;
+    }
+
+    // Lấy sơ đồ ghế (tự sinh nếu rỗng)
     @GetMapping("/showtimes/{showtimeId}/seats")
-    public ResponseEntity<List<ShowtimeSeat>> getSeatsByShowtime(@PathVariable Long showtimeId) {
-        return ResponseEntity.ok(bookingService.getSeatsByShowtime(showtimeId));
+    public ResponseEntity<List<ShowtimeSeat>> getSeats(@PathVariable Long showtimeId) {
+        return ResponseEntity.ok(bookingService.getOrCreateShowtimeSeats(showtimeId));
     }
 
-    // 2. API thực hiện đặt vé
+    // Đặt vé: Lấy User qua session, che password bằng BookingResponse
     @PostMapping
-    public ResponseEntity<Booking> createBooking(@RequestBody BookingRequest request) {
-        Booking createdBooking = bookingService.createBooking(request);
-        return ResponseEntity.ok(createdBooking);
-    }
+    public ResponseEntity<BookingResponse> createBooking(
+            @RequestBody BookingRequest request) {
 
-    // 3. API xem chi tiết một hóa đơn
-    @GetMapping("/{bookingId}")
-    public ResponseEntity<Booking> getBookingDetails(@PathVariable Long bookingId) {
-        return ResponseEntity.ok(bookingService.getBookingById(bookingId));
-    }
+        if (request.getUserId() == null) {
+            return ResponseEntity.badRequest().build();
+        }
 
-    // 4. API lấy lịch sử đặt vé của một người dùng
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<List<Booking>> getUserBookings(@PathVariable Long userId) {
-        return ResponseEntity.ok(bookingService.getBookingsByUser(userId));
+        BookingResponse response = bookingService.createBooking(request.getUserId(), request);
+        return ResponseEntity.ok(response);
     }
 }
