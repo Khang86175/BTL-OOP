@@ -7,8 +7,11 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.JoinColumn;
 
 @Entity
+@Table(name = "showtime_seats")
 public class ShowtimeSeat {
 
     // Khóa chính tự tăng
@@ -18,10 +21,12 @@ public class ShowtimeSeat {
 
     // Quan hệ N-1: Nhiều ghế này cùng thuộc về 1 suất chiếu cụ thể
     @ManyToOne
+    @JoinColumn(name = "showtime_id", nullable = false)
     private Showtime showtime;
 
     // Quan hệ N-1: Liên kết với chiếc ghế vật lý (số ghế, hàng ghế) trong phòng chiếu
     @ManyToOne
+    @JoinColumn(name = "seat_id", nullable = false)
     private Seat seat;
 
     // Lưu trạng thái ghế dưới dạng chữ (Ví dụ: "AVAILABLE", "BOOKED") vào database thay vì số 0, 1

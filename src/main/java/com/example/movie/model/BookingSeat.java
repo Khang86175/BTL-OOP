@@ -19,15 +19,20 @@ public class BookingSeat {
     @JoinColumn(name = "seat_id", nullable = false)
     private Seat seat;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "showtime_id", nullable = false)
+    private Showtime showtime;
+
     @Column(name = "price_at_booking", nullable = false, precision = 12, scale = 2)
     private BigDecimal priceAtBooking;
 
     public BookingSeat() {
     }
 
-    public BookingSeat(Booking booking, Seat seat, BigDecimal priceAtBooking) {
+    public BookingSeat(Booking booking, Seat seat, Showtime showtime, BigDecimal priceAtBooking) {
         this.booking = booking;
         this.seat = seat;
+        this.showtime = showtime;
         this.priceAtBooking = priceAtBooking;
     }
 
@@ -53,6 +58,14 @@ public class BookingSeat {
 
     public void setSeat(Seat seat) {
         this.seat = seat;
+    }
+
+    public Showtime getShowtime() {
+        return showtime;
+    }
+
+    public void setShowtime(Showtime showtime) {
+        this.showtime = showtime;
     }
 
     public BigDecimal getPriceAtBooking() {
