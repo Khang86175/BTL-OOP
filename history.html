@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/catalog :: head('Lịch sử thanh toán')}"></head>
+<body class="bg-light">
+<th:block th:replace="~{fragments/navbar :: navbar}"></th:block>
+<main class="container page-section">
+    <section class="schedule-card mx-auto" style="max-width: 900px;">
+        <h1 class="fw-bold mb-4">Lịch sử thanh toán</h1>
+        <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
+        <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
+        <div th:if="${#lists.isEmpty(bookings)}" class="alert alert-info">Chưa có giao dịch nào.</div>
+        <div class="table-responsive" th:unless="${#lists.isEmpty(bookings)}">
+            <table class="table align-middle">
+                <thead><tr><th>Mã vé</th><th>Số tiền</th><th>Thời gian</th><th>Trạng thái</th></tr></thead>
+                <tbody>
+                <tr th:each="booking : ${bookings}">
+                    <td th:text="${booking.id}"></td>
+                    <td th:text="${#numbers.formatDecimal(booking.totalAmount,0,'COMMA',2,'POINT') + ' đ'}"></td>
+                    <td th:text="${#temporals.format(booking.createdAt,'dd/MM/yyyy HH:mm')}"></td>
+                    <td><span class="badge bg-success" th:if="${booking.paymentStatus != null and booking.paymentStatus.name() == 'PAID'}">Đã thanh toán</span>
+                        <span class="badge bg-warning text-dark" th:if="${booking.paymentStatus == null or booking.paymentStatus.name() == 'PENDING'}">Chờ thanh toán</span></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+<th:block th:replace="~{fragments/catalog :: footer}"></th:block>
+</body>
+</html>

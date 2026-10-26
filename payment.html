@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/catalog :: head('Thanh toán QR')}"></head>
+<body class="bg-light">
+<th:block th:replace="~{fragments/navbar :: navbar}"></th:block>
+<main class="container page-section">
+    <section class="schedule-card mx-auto text-center" style="max-width: 760px;">
+        <h1 class="fw-bold mb-3">Thanh toán vé</h1>
+        <p>Mã đặt vé: <strong th:text="${booking.id}"></strong></p>
+        <p class="fs-5">Số tiền cần thanh toán:
+            <strong class="text-success" th:text="${#numbers.formatDecimal(booking.totalAmount,0,'COMMA',2,'POINT') + ' đ'}"></strong>
+        </p>
+        <div th:if="${paymentQrConfigured}" class="mt-3">
+            <img th:src="${paymentQrUrl}" alt="Mã QR thanh toán" class="img-fluid" style="max-width: 360px;">
+            <p class="small text-secondary mt-2">Nội dung chuyển khoản: CineTicket <span th:text="${booking.id}"></span></p>
+        </div>
+        <div th:unless="${paymentQrConfigured}" class="alert alert-warning mt-3">
+            Chưa cấu hình tài khoản nhận tiền để tạo mã QR.
+        </div>
+        <form th:action="@{/bookings/payment/{id}/complete(id=${booking.id})}" method="post" class="mt-4">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" th:if="${_csrf}">
+            <button type="submit" class="btn btn-success">Tôi đã thanh toán</button>
+            <a class="btn btn-outline-secondary ms-2" th:href="@{/bookings/history}">Lịch sử thanh toán</a>
+        </form>
+    </section>
+</main>
+<th:block th:replace="~{fragments/catalog :: footer}"></th:block>
+</body>
+</html>
