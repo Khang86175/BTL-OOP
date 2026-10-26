@@ -9,6 +9,7 @@ import com.example.movie.repository.UserRepository;
 import com.example.movie.repository.TicketRepository;
 import com.example.movie.service.BookingService;
 import com.example.movie.service.PaymentService;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -69,6 +70,9 @@ public class BookingViewController {
         } catch (IllegalArgumentException | IllegalStateException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
             return "redirect:/bookings/showtimes/" + showtimeId;
+        } catch (DataIntegrityViolationException e) {
+            redirectAttributes.addFlashAttribute("error", "Ghế vừa được người khác giữ. Vui lòng tải lại sơ đồ ghế.");
+            return "redirect:/bookings/showtimes/" + showtimeId;
         }
     }
 
@@ -85,6 +89,9 @@ public class BookingViewController {
             return "redirect:/bookings/payment/" + booking.getBookingId();
         } catch (IllegalArgumentException | IllegalStateException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
+            return "redirect:/bookings/showtimes/" + showtimeId;
+        } catch (DataIntegrityViolationException e) {
+            redirectAttributes.addFlashAttribute("error", "Ghế vừa được người khác giữ. Vui lòng tải lại sơ đồ ghế.");
             return "redirect:/bookings/showtimes/" + showtimeId;
         }
     }
