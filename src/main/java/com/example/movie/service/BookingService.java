@@ -6,6 +6,8 @@ import com.example.movie.model.*;
 import com.example.movie.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -24,23 +26,30 @@ public class BookingService {
     private final ShowtimeRepository showtimeRepository;
     private final SeatRepository seatRepository;
     private final UserRepository userRepository;
+    private final PaymentRepository paymentRepository;
+    private final long holdMinutes;
 
     public BookingService(BookingRepository bookingRepository,
                           BookingSeatRepository bookingSeatRepository,
                           ShowtimeSeatRepository showtimeSeatRepository,
                           ShowtimeRepository showtimeRepository,
                           SeatRepository seatRepository,
-                          UserRepository userRepository) {
+                          UserRepository userRepository,
+                          PaymentRepository paymentRepository,
+                          @Value("${payment.hold-minutes:15}") long holdMinutes) {
         this.bookingRepository = bookingRepository;
         this.bookingSeatRepository = bookingSeatRepository;
         this.showtimeSeatRepository = showtimeSeatRepository;
         this.showtimeRepository = showtimeRepository;
         this.seatRepository = seatRepository;
         this.userRepository = userRepository;
+        this.paymentRepository = paymentRepository;
+        this.holdMinutes = holdMinutes;
     }
 
     @Transactional
     public List<ShowtimeSeat> getOrCreateShowtimeSeats(Long showtimeId) {
+        expirePendingBookings();
         Showtime showtime = showtimeRepository.findById(showtimeId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy suất chiếu."));
         if (!showtime.isBookableAt(LocalDateTime.now(Movie.CINEMA_ZONE))) {
@@ -95,6 +104,7 @@ public class BookingService {
 
     @Transactional
     public BookingResponse createBooking(Long userId, BookingRequest request) {
+        expirePendingBookings();
         Showtime showtime = findShowtime(request.getShowtimeId());
         List<ShowtimeSeat> selectedSeats = validateAndGetSelectedSeats(request);
 
@@ -102,10 +112,8 @@ public class BookingService {
         List<String> seatNames = new ArrayList<>();
         for (ShowtimeSeat seat : selectedSeats) {
             totalAmount = totalAmount.add(showtime.priceFor(seat.getSeat().getSeatType()));
-            seat.setStatus(SeatStatus.BOOKED);
             seatNames.add(seat.getSeat().getRowLabel() + seat.getSeat().getSeatNumber());
         }
-        showtimeSeatRepository.saveAll(selectedSeats);
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy user."));
@@ -113,17 +121,20 @@ public class BookingService {
         booking.setUser(user);
         booking.setShowtime(showtime);
         booking.setTotalAmount(totalAmount);
-        // Keep the original booking status for compatibility with existing MySQL ENUM values.
-        booking.setStatus(BookingStatus.CONFIRMED);
+        booking.setStatus(BookingStatus.PENDING_PAYMENT);
         booking.setPaymentStatus(PaymentStatus.PENDING);
-        booking.setCreatedAt(LocalDateTime.now(Movie.CINEMA_ZONE));
+        LocalDateTime now = LocalDateTime.now(Movie.CINEMA_ZONE);
+        booking.setCreatedAt(now);
+        booking.setHoldExpiresAt(now.plusMinutes(holdMinutes));
         Booking savedBooking = bookingRepository.save(booking);
 
         for (ShowtimeSeat selectedSeat : selectedSeats) {
+            // BOOKED is the existing inventory representation for a temporary hold.
+            selectedSeat.setStatus(SeatStatus.BOOKED);
             bookingSeatRepository.save(new BookingSeat(savedBooking, selectedSeat.getSeat(), showtime,
                     showtime.priceFor(selectedSeat.getSeat().getSeatType())));
         }
-
+        showtimeSeatRepository.saveAll(selectedSeats);
         return new BookingResponse(
                 savedBooking.getId(),
                 showtime.getId(),
@@ -137,13 +148,113 @@ public class BookingService {
 
     @Transactional
     public Booking markAsPaid(Long userId, Long bookingId) {
+        expirePendingBookings();
         Booking booking = bookingRepository.findByIdAndUserId(bookingId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn đặt vé."));
-        if (booking.getPaymentStatus() != PaymentStatus.PENDING) {
+        if (booking.getStatus() != BookingStatus.PENDING_PAYMENT
+                || booking.getPaymentStatus() != PaymentStatus.PENDING) {
             throw new IllegalStateException("Đơn đặt vé này đã được xử lý.");
         }
-        booking.setPaymentStatus(PaymentStatus.PAID);
+        LocalDateTime now = LocalDateTime.now(Movie.CINEMA_ZONE);
+        if (booking.getHoldExpiresAt() != null && !booking.getHoldExpiresAt().isAfter(now)) {
+            expireBooking(booking);
+            throw new IllegalStateException("Thời gian giữ ghế đã hết. Vui lòng đặt vé lại.");
+        }
+        Payment payment = paymentRepository
+                .findFirstByBookingIdAndStatusOrderByCreatedAtDesc(bookingId, PaymentStatus.PENDING)
+                .orElseThrow(() -> new IllegalStateException("Không còn giao dịch thanh toán đang chờ."));
+        if (payment.getAmount() == null || booking.getTotalAmount() == null
+                || payment.getAmount().compareTo(booking.getTotalAmount()) != 0) {
+            throw new IllegalStateException("Số tiền thanh toán không khớp tổng tiền vé.");
+        }
+
+        List<BookingSeat> bookingSeats = bookingSeatRepository.findByBookingId(bookingId);
+        if (bookingSeats.isEmpty()) {
+            throw new IllegalStateException("Đơn đặt vé không có ghế.");
+        }
+        List<Long> seatIds = bookingSeats.stream()
+                .map(bookingSeat -> bookingSeat.getSeat().getId())
+                .toList();
+        List<ShowtimeSeat> selectedSeats = showtimeSeatRepository
+                .findByShowtimeIdAndSeatIdIn(booking.getShowtime().getId(), seatIds);
+        if (selectedSeats.size() != seatIds.size()
+                || selectedSeats.stream().anyMatch(seat -> seat.getStatus() != SeatStatus.BOOKED)) {
+            throw new IllegalStateException("Ghế giữ cho đơn này không còn khả dụng. Vui lòng đặt vé lại.");
+        }
+        payment.setStatus(PaymentStatus.SUCCESS);
+        payment.setPaidAt(now);
+        payment.setTransactionRef("QR-" + payment.getId());
+        paymentRepository.save(payment);
+        booking.setStatus(BookingStatus.CONFIRMED);
+        booking.setPaymentStatus(PaymentStatus.SUCCESS);
         return bookingRepository.save(booking);
+    }
+
+    @Transactional
+    public Payment createPaymentAttempt(Long userId, Long bookingId) {
+        expirePendingBookings();
+        Booking booking = getPendingBooking(userId, bookingId);
+        paymentRepository.findFirstByBookingIdAndStatusOrderByCreatedAtDesc(booking.getId(), PaymentStatus.PENDING)
+                .ifPresent(current -> {
+                    current.setStatus(PaymentStatus.FAILED);
+                    paymentRepository.save(current);
+                });
+        Payment payment = new Payment(booking, "QR", booking.getTotalAmount(), PaymentStatus.PENDING,
+                null, LocalDateTime.now(Movie.CINEMA_ZONE));
+        return paymentRepository.save(payment);
+    }
+
+    @Transactional
+    public void failLatestPayment(Long userId, Long bookingId) {
+        expirePendingBookings();
+        Booking booking = getPendingBooking(userId, bookingId);
+        paymentRepository.findFirstByBookingIdAndStatusOrderByCreatedAtDesc(booking.getId(), PaymentStatus.PENDING)
+                .ifPresent(payment -> {
+                    payment.setStatus(PaymentStatus.FAILED);
+                    paymentRepository.save(payment);
+                });
+    }
+
+    @Transactional
+    @Scheduled(fixedDelayString = "${payment.expiry-check-ms:60000}")
+    public void expirePendingBookings() {
+        LocalDateTime now = LocalDateTime.now(Movie.CINEMA_ZONE);
+        bookingRepository.findByStatusAndHoldExpiresAtBefore(BookingStatus.PENDING_PAYMENT, now)
+                .forEach(this::expireBooking);
+    }
+
+    private Booking getPendingBooking(Long userId, Long bookingId) {
+        Booking booking = bookingRepository.findByIdAndUserId(bookingId, userId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn đặt vé."));
+        if (booking.getStatus() != BookingStatus.PENDING_PAYMENT
+                || booking.getHoldExpiresAt() == null
+                || !booking.getHoldExpiresAt().isAfter(LocalDateTime.now(Movie.CINEMA_ZONE))) {
+            if (booking.getStatus() == BookingStatus.PENDING_PAYMENT) {
+                expireBooking(booking);
+            }
+            throw new IllegalStateException("Đơn đặt vé không còn trong thời gian giữ ghế.");
+        }
+        return booking;
+    }
+
+    private void expireBooking(Booking booking) {
+        bookingSeatRepository.findByBookingId(booking.getId()).forEach(bookingSeat ->
+                showtimeSeatRepository.findByShowtimeIdAndSeatIdIn(
+                        bookingSeat.getShowtime().getId(), List.of(bookingSeat.getSeat().getId()))
+                        .forEach(showtimeSeat -> {
+                            if (showtimeSeat.getStatus() == SeatStatus.BOOKED) {
+                                showtimeSeat.setStatus(SeatStatus.AVAILABLE);
+                                showtimeSeatRepository.save(showtimeSeat);
+                            }
+                        }));
+        paymentRepository.findFirstByBookingIdAndStatusOrderByCreatedAtDesc(booking.getId(), PaymentStatus.PENDING)
+                .ifPresent(payment -> {
+                    payment.setStatus(PaymentStatus.FAILED);
+                    paymentRepository.save(payment);
+                });
+        booking.setStatus(BookingStatus.EXPIRED);
+        booking.setPaymentStatus(PaymentStatus.FAILED);
+        bookingRepository.save(booking);
     }
 
     @Transactional(readOnly = true)

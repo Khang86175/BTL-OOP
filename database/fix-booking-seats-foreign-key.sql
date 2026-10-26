@@ -3,6 +3,9 @@
 USE movie_booking;
 
 ALTER TABLE booking_seats
+    MODIFY COLUMN showtime_id BIGINT NULL;
+
+ALTER TABLE booking_seats
     DROP FOREIGN KEY FKmbi9ciapn0nvat63t0a8tv478;
 
 ALTER TABLE booking_seats

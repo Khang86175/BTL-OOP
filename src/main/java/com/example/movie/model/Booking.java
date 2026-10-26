@@ -7,10 +7,13 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.Column;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
+@Table(name = "booking")
 public class Booking {
 
     @Id
@@ -30,13 +33,18 @@ public class Booking {
 
     // Trạng thái đơn hàng (Ví dụ: CONFIRMED)
     @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 30)
     private BookingStatus status;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "payment_status", length = 20)
     private PaymentStatus paymentStatus;
 
     // Thời gian khách bấm đặt vé
     private LocalDateTime createdAt;
+
+    @Column(name = "hold_expires_at")
+    private LocalDateTime holdExpiresAt;
 
     public Booking() {
     }
@@ -96,5 +104,13 @@ public class Booking {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getHoldExpiresAt() {
+        return holdExpiresAt;
+    }
+
+    public void setHoldExpiresAt(LocalDateTime holdExpiresAt) {
+        this.holdExpiresAt = holdExpiresAt;
     }
 }

@@ -21,7 +21,7 @@ public class ShowtimeSeat {
 
     // Quan hệ N-1: Nhiều ghế này cùng thuộc về 1 suất chiếu cụ thể
     @ManyToOne
-    @JoinColumn(name = "showtime_id", nullable = false)
+    @JoinColumn(name = "showtime_id")
     private Showtime showtime;
 
     // Quan hệ N-1: Liên kết với chiếc ghế vật lý (số ghế, hàng ghế) trong phòng chiếu

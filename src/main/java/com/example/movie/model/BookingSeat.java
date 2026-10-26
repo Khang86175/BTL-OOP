@@ -20,7 +20,7 @@ public class BookingSeat {
     private Seat seat;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "showtime_id", nullable = false)
+    @JoinColumn(name = "showtime_id")
     private Showtime showtime;
 
     @Column(name = "price_at_booking", nullable = false, precision = 12, scale = 2)
