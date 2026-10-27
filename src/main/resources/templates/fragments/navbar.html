@@ -12,7 +12,9 @@
             <a th:if="${isAdmin}" class="nav-catalog" th:href="@{/admin/theaters}">Quản lý rạp</a>
             <a th:if="${isAdmin}" class="nav-catalog" th:href="@{/admin/rooms}">Phòng và ghế</a>
             <a th:if="${isAdmin}" class="nav-catalog" th:href="@{/admin/showtimes}">Quản lý lịch</a>
+            <a th:if="${isAdmin}" class="nav-catalog" th:href="@{/admin/dashboard}">Thống kê</a>
             <th:block th:if="${isLoggedIn}">
+                <a class="nav-catalog" th:href="@{/bookings/history}">Lịch sử thanh toán</a>
                 <form th:action="@{/logout}" method="post" class="m-0"><button type="submit" class="btn btn-outline-light btn-sm">Đăng xuất</button></form>
                 <a class="profile-nav-link" th:href="@{/profile}" aria-label="Hồ sơ người dùng" title="Hồ sơ người dùng">
                     <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">

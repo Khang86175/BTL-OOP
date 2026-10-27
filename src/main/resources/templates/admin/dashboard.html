@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/catalog :: head('Thống kê doanh thu')}"></head>
+<body>
+<th:block th:replace="~{fragments/navbar :: navbar}"></th:block>
+<main class="container page-section">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div><p class="eyebrow text-success mb-2">QUẢN TRỊ</p><h1 class="fw-bold mb-0">Thống kê doanh thu</h1></div>
+        <form class="d-flex gap-2 align-items-end" method="get" th:action="@{/admin/dashboard}">
+            <label class="small">Năm<input class="form-control" type="number" name="year" min="2000" max="2100" th:value="${selectedYear}"></label>
+            <label class="small">Tháng<select class="form-select" name="month">
+                <option th:each="m : ${#numbers.sequence(1,12)}" th:value="${m}" th:text="${m}" th:selected="${m == selectedMonth}"></option>
+            </select></label>
+            <button class="btn btn-success" type="submit">Xem</button>
+        </form>
+    </div>
+    <div class="row g-3 mb-4">
+        <div class="col-md-5"><div class="panel p-4 h-100"><div class="text-secondary small">Tổng doanh thu tháng</div><div class="display-6 fw-bold text-success" th:text="${#numbers.formatDecimal(totalRevenue, 0, 'COMMA', 0, 'POINT')} + ' đ'"></div></div></div>
+    </div>
+    <div class="panel p-4">
+        <h2 class="h5 mb-3">Phim có doanh thu cao</h2>
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead><tr><th>Phim</th><th class="text-end">Doanh thu</th></tr></thead>
+                <tbody>
+                <tr th:if="${#lists.isEmpty(topMovies)}"><td colspan="2" class="text-center text-secondary p-4">Chưa có giao dịch thành công trong tháng này.</td></tr>
+                <tr th:each="item : ${topMovies}"><td th:text="${item.movieTitle}"></td><td class="text-end" th:text="${#numbers.formatDecimal(item.revenue, 0, 'COMMA', 0, 'POINT')} + ' đ'"></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="panel p-4 mt-4">
+        <h2 class="h5 mb-3">Rạp có doanh thu cao</h2>
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead><tr><th>Rạp</th><th class="text-end">Doanh thu</th></tr></thead>
+                <tbody>
+                <tr th:if="${#lists.isEmpty(topTheaters)}"><td colspan="2" class="text-center text-secondary p-4">Chưa có giao dịch thành công trong tháng này.</td></tr>
+                <tr th:each="item : ${topTheaters}"><td th:text="${item.name}"></td><td class="text-end" th:text="${#numbers.formatDecimal(item.revenue, 0, 'COMMA', 0, 'POINT')} + ' đ'"></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+<th:block th:replace="~{fragments/catalog :: footer}"></th:block>
+</body></html>
