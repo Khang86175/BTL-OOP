@@ -1,7 +1,6 @@
 # CineTicket — Website đặt vé xem phim
 
 Ứng dụng Java 21, Spring Boot 4.1.1, Spring Security, Thymeleaf, Spring Data JPA và MySQL.
-Phần đã triển khai: xác thực cơ bản của Người 1 và **phim/thể loại của Người 2**.
 
 ## Chạy ứng dụng với MySQL
 
