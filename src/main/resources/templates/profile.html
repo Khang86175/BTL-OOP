@@ -47,6 +47,13 @@
                         <dd th:text="${profile.createdAt}">01/01/2025 12:00</dd>
                     </div>
                 </dl>
+
+                <div class="profile-actions">
+                    <a class="btn btn-outline-success" th:href="@{/profile/change-password}">Đổi mật khẩu</a>
+                </div>
+            </div>
+            <div th:if="${param.passwordChanged}" class="alert alert-success mt-3 mb-0">
+                Mật khẩu đã được đổi thành công.
             </div>
         </section>
     </main>
