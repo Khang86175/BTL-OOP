@@ -3,27 +3,7 @@
 Ứng dụng Java 21, Spring Boot 4.1.1, Spring Security, Thymeleaf, Spring Data JPA và MySQL.
 Phần đã triển khai: xác thực cơ bản của Người 1 và **phim/thể loại của Người 2**.
 
-## Chạy nhanh module phim, không cần MySQL
-
-Cần JDK 21 và kết nối Internet cho lần tải dependency đầu tiên. Maven Wrapper đi kèm nên không bắt buộc cài Maven riêng.
-Chạy lệnh tại thư mục có `pom.xml`:
-
-```sh
-./mvnw spring-boot:run -Dspring-boot.run.profiles=demo
-```
-
-Windows PowerShell dùng `./mvnw.cmd` thay cho `./mvnw`. Nếu đã có Maven, cũng có thể dùng `mvn`.
-Mở <http://localhost:8080>.
-
-- Admin demo: `admin@cineticket.test` / `DemoAdmin123!`.
-- Có 6 phim hư cấu: 3 đang chiếu, 2 sắp chiếu, 1 đang ẩn; 5 thể loại.
-- Có thể đăng ký một Customer để kiểm tra quyền.
-- Profile `demo` dùng H2 **trong bộ nhớ**: mọi dữ liệu mất khi tắt ứng dụng. Không dùng profile này cho dữ liệu cần lưu lâu dài.
-- Tài khoản Admin demo chỉ được tạo khi bật profile `demo`.
-
-Nếu máy báo không tìm thấy Java, cài JDK 21 và kiểm tra `java -version` / `JAVA_HOME` trước khi chạy.
-
-## Chạy với MySQL của nhóm
+## Chạy ứng dụng với MySQL
 
 1. Cài JDK 21 và MySQL 8; tạo database hỗ trợ Unicode:
 
@@ -32,7 +12,7 @@ Nếu máy báo không tìm thấy Java, cài JDK 21 và kiểm tra `java -versi
        CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
    ```
 
-2. `src/main/resources/application.properties` không lưu mật khẩu DB. Trên PowerShell, đặt biến môi trường trong terminal trước khi chạy:
+2. Có thể đặt biến môi trường để cấu hình hoặc ghi đè thông tin kết nối MySQL. Trên PowerShell, đặt các biến trong terminal trước khi chạy; không commit mật khẩu thật vào Git:
 
    ```powershell
    $env:SPRING_DATASOURCE_URL = 'jdbc:mysql://localhost:3306/movie_booking?useSSL=false&serverTimezone=UTC'
@@ -116,33 +96,5 @@ Các API khác:
 - `create(MovieForm)`, `update(id, MovieForm)`, `setVisibility(id, visible)` dành cho quản trị; request phải đi qua `/admin/**` được Spring Security bảo vệ.
 
 Cấu trúc mã: `model` → `repository` → `service` → `controller` → `templates`; DTO form không bind trực tiếp entity.
-
-## Kiểm thử
-
-```sh
-./mvnw test
-./mvnw package
-```
-
-26 bài kiểm thử tích hợp ở `CatalogIntegrationTest` và `CatalogDemoSmokeTest`:
-
-- Trang chủ/danh sách/chi tiết lấy dữ liệu thật; phim ẩn và ID không tồn tại.
-- Tìm tên kết hợp thể loại/trạng thái, không lặp phim hay mất thể loại khi join, các kiểu sắp xếp, ngày khởi chiếu đúng hôm nay, tìm `%`/`_`, không có kết quả.
-- Validation trường bắt buộc/thời lượng/ngày/URL/thể loại, cập nhật và nhiều thể loại, ẩn rồi hiện lại vẫn giữ dữ liệu.
-- Tên thể loại trùng, chuẩn hóa và đổi tên dùng chung.
-- Khách chưa đăng nhập và Customer không có quyền Admin; kiểm tra CSRF và đăng nhập Admin thật bằng BCrypt.
-- Escape nội dung HTML; các trang vẫn render khi tắt Open Session in View.
-- Profile demo khởi động và nạp đúng dữ liệu mẫu.
-
-Test tự động dùng H2 ở chế độ tương thích MySQL; vẫn cần chạy luồng demo trên MySQL của nhóm trước khi tích hợp cuối.
-
-### Luồng kiểm tra thủ công
-
-1. Mở `/movies` khi chưa đăng nhập: xem phim, tìm tên, lọc thể loại, chuyển đang/sắp chiếu, sắp xếp và thử từ khóa không có kết quả.
-2. Mở chi tiết: kiểm tra ngày, thời lượng, thể loại, mô tả; thêm URL poster/trailer hợp lệ để kiểm tra liên kết.
-3. Đăng nhập Admin: thêm thể loại, thêm phim với nhiều thể loại, sửa phim; thử dữ liệu sai và xác nhận thông báo lỗi.
-4. Ẩn phim: kiểm tra Admin vẫn thấy, khách không thấy và URL chi tiết trả 404; hiện lại phim.
-5. Đổi tên thể loại: kiểm tra các phim liên quan dùng tên mới.
-6. Đăng ký/đăng nhập Customer rồi nhập trực tiếp `/admin/movies` và `/admin/categories`: phải bị từ chối.
 
 Phòng chiếu, lịch chiếu, đặt vé, thanh toán và thống kê thuộc Người 3–5, chưa triển khai. Giao diện Bootstrap và font tải từ CDN nên cần Internet để hiển thị đầy đủ kiểu dáng.
